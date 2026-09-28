@@ -1,0 +1,394 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  color: #171717;
+  background: #f7f6f2;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+
+  --off-white: #f7f6f2;
+  --white: #ffffff;
+  --black: #171717;
+  --gray-900: #262626;
+  --gray-700: #525252;
+  --gray-500: #737373;
+  --gray-400: #a3a3a3;
+  --gray-300: #d4d4d4;
+  --gray-200: #e5e5e5;
+  --gray-100: #f5f5f5;
+
+  --radius: 14px;
+  --transition: 160ms ease;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  background: var(--off-white);
+  color: var(--black);
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* ------------------------------
+   LOGO
+------------------------------ */
+
+.organiza-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.organiza-logo__symbol {
+  display: block;
+  width: 39px;
+  height: 39px;
+  object-fit: contain;
+}
+
+.organiza-logo__name {
+  color: var(--black);
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.8px;
+}
+
+/* ------------------------------
+   LOGIN
+------------------------------ */
+
+.login-page {
+  display: flex;
+  min-height: 100svh;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 20px;
+  background: var(--off-white);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 410px;
+}
+
+.login-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 58px;
+}
+
+.login-heading {
+  margin-bottom: 32px;
+}
+
+.login-heading h1 {
+  margin: 0;
+  color: var(--black);
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -1px;
+  line-height: 1.15;
+}
+
+.login-heading p {
+  margin: 9px 0 0;
+  color: var(--gray-500);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+/* ------------------------------
+   FORM
+------------------------------ */
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field label {
+  color: var(--gray-700);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.field input {
+  width: 100%;
+  height: 50px;
+  padding: 0 15px;
+
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius);
+
+  outline: none;
+  background: var(--white);
+  color: var(--black);
+
+  font-size: 15px;
+
+  transition:
+    border-color var(--transition),
+    box-shadow var(--transition);
+}
+
+.field input::placeholder {
+  color: var(--gray-400);
+}
+
+.field input:focus {
+  border-color: var(--gray-700);
+  box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.06);
+}
+
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 78px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 13px;
+
+  padding: 4px;
+  border: 0;
+  background: transparent;
+
+  color: var(--gray-500);
+  font-size: 12px;
+  font-weight: 600;
+
+  transform: translateY(-50%);
+}
+
+.password-toggle:hover {
+  color: var(--black);
+}
+
+.text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+
+  color: var(--gray-700);
+  font-size: 12px;
+  font-weight: 600;
+
+  transition: color var(--transition);
+}
+
+.text-button:hover {
+  color: var(--black);
+}
+
+/* ------------------------------
+   REMEMBER
+------------------------------ */
+
+.remember-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+
+  width: fit-content;
+
+  color: var(--gray-700);
+  font-size: 13px;
+}
+
+.remember-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+
+  accent-color: var(--black);
+}
+
+/* ------------------------------
+   BUTTONS
+------------------------------ */
+
+.primary-button,
+.secondary-button {
+  width: 100%;
+  height: 50px;
+
+  border-radius: var(--radius);
+
+  font-size: 15px;
+  font-weight: 650;
+
+  transition:
+    background-color var(--transition),
+    border-color var(--transition),
+    color var(--transition),
+    transform var(--transition);
+}
+
+.primary-button {
+  border: 1px solid var(--black);
+  background: var(--black);
+  color: var(--white);
+}
+
+.primary-button:hover:not(:disabled) {
+  background: #303030;
+}
+
+.primary-button:active:not(:disabled),
+.secondary-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.secondary-button {
+  border: 1px solid var(--gray-300);
+  background: var(--white);
+  color: var(--black);
+}
+
+.secondary-button:hover:not(:disabled) {
+  border-color: var(--gray-400);
+  background: var(--gray-100);
+}
+
+/* ------------------------------
+   FEEDBACK
+------------------------------ */
+
+.feedback {
+  padding: 12px 14px;
+
+  border-radius: 12px;
+
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.feedback--error {
+  border: 1px solid #e2d0d0;
+  background: #faf4f4;
+  color: #6d3030;
+}
+
+.feedback--success {
+  border: 1px solid #d6d6d6;
+  background: #f5f5f5;
+  color: #404040;
+}
+
+/* ------------------------------
+   DIVIDER
+------------------------------ */
+
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  margin: 30px 0 22px;
+
+  color: var(--gray-400);
+  font-size: 12px;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--gray-200);
+}
+
+.login-divider span {
+  flex: 0 0 auto;
+}
+
+/* ------------------------------
+   CREATE ACCOUNT
+------------------------------ */
+
+.create-account {
+  text-align: center;
+}
+
+.create-account p {
+  margin: 0 0 12px;
+
+  color: var(--gray-500);
+  font-size: 13px;
+}
+
+/* ------------------------------
+   SMALL SCREENS
+------------------------------ */
+
+@media (max-width: 380px) {
+  .login-page {
+    padding: 24px 17px;
+  }
+
+  .login-brand {
+    margin-bottom: 46px;
+  }
+
+  .login-heading h1 {
+    font-size: 28px;
+  }
+
+  .organiza-logo__symbol {
+    width: 35px;
+    height: 35px;
+  }
+
+  .organiza-logo__name {
+    font-size: 22px;
+  }
+}
