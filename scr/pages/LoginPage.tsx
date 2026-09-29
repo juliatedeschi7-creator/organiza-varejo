@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react'
+import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
 
 export default function LoginPage() {
@@ -10,14 +11,41 @@ export default function LoginPage() {
   const [erro, setErro] = useState('')
   const [mensagem, setMensagem] = useState('')
 
-async function handleLogin(event: FormEvent<HTMLFormElement>) {
-  event.preventDefault()
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
 
-  setErro('')
-  setMensagem('')
+    setErro('')
+    setMensagem('')
 
-  setMensagem('A tela do Organiza está funcionando.')
-}
+    if (!email.trim() || !senha) {
+      setErro('Informe seu e-mail e sua senha.')
+      return
+    }
+
+    setCarregando(true)
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: senha,
+    })
+
+    setCarregando(false)
+
+    if (error) {
+      setErro('E-mail ou senha incorretos.')
+      return
+    }
+
+    setMensagem('Login realizado. Preparando seu acesso...')
+
+    // A próxima etapa vai identificar:
+    // - perfil
+    // - empresas
+    // - filiais
+    // - cargos
+    // - permissões
+    // - contexto do usuário
+  }
 
   async function handleEsqueciSenha() {
     setErro('')
