@@ -2,7 +2,13 @@ import { FormEvent, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
 
-export default function LoginPage() {
+interface LoginPageProps {
+  onCriarConta: () => void
+}
+
+export default function LoginPage({
+  onCriarConta,
+}: LoginPageProps) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
@@ -11,7 +17,9 @@ export default function LoginPage() {
   const [erro, setErro] = useState('')
   const [mensagem, setMensagem] = useState('')
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleLogin(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault()
 
     setErro('')
@@ -24,10 +32,11 @@ export default function LoginPage() {
 
     setCarregando(true)
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password: senha,
-    })
+    const { error } =
+      await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password: senha,
+      })
 
     setCarregando(false)
 
@@ -36,15 +45,19 @@ export default function LoginPage() {
       return
     }
 
-    setMensagem('Login realizado. Preparando seu acesso...')
+    setMensagem(
+      'Login realizado. Preparando seu acesso...',
+    )
 
-    // Próxima etapa:
-    // - identificar perfil
-    // - identificar empresas
-    // - identificar filiais
-    // - identificar cargos
-    // - identificar permissões
-    // - definir o contexto do usuário
+    /*
+      Próxima etapa:
+      - identificar perfil
+      - identificar empresas
+      - identificar filiais
+      - identificar cargos
+      - identificar permissões
+      - definir o contexto do usuário
+    */
   }
 
   async function handleEsqueciSenha() {
@@ -52,16 +65,19 @@ export default function LoginPage() {
     setMensagem('')
 
     if (!email.trim()) {
-      setErro('Informe seu e-mail para recuperar sua senha.')
+      setErro(
+        'Informe seu e-mail para recuperar sua senha.',
+      )
       return
     }
 
-    const { error } = await supabase.auth.resetPasswordForEmail(
-      email.trim(),
-      {
-        redirectTo: `${window.location.origin}/redefinir-senha`,
-      },
-    )
+    const { error } =
+      await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: `${window.location.origin}/redefinir-senha`,
+        },
+      )
 
     if (error) {
       setErro(
@@ -75,14 +91,12 @@ export default function LoginPage() {
     )
   }
 
-  function handleCriarConta() {
-    // Será conectado à Página 2 — Cadastro.
-    console.log('Abrir cadastro')
-  }
-
   return (
     <main className="login-page">
-      <section className="login-card" aria-label="Entrar no Organiza">
+      <section
+        className="login-card"
+        aria-label="Entrar no Organiza"
+      >
         {/* MARCA */}
         <div className="login-brand">
           <Logo />
@@ -107,7 +121,10 @@ export default function LoginPage() {
         </div>
 
         {/* FORMULÁRIO */}
-        <form className="login-form" onSubmit={handleLogin}>
+        <form
+          className="login-form"
+          onSubmit={handleLogin}
+        >
           {/* E-MAIL */}
           <div className="field">
             <label htmlFor="email">
@@ -122,7 +139,9 @@ export default function LoginPage() {
               inputMode="email"
               placeholder="seu@email.com"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
               disabled={carregando}
             />
           </div>
@@ -148,11 +167,17 @@ export default function LoginPage() {
               <input
                 id="senha"
                 name="senha"
-                type={mostrarSenha ? 'text' : 'password'}
+                type={
+                  mostrarSenha
+                    ? 'text'
+                    : 'password'
+                }
                 autoComplete="current-password"
                 placeholder="Digite sua senha"
                 value={senha}
-                onChange={(event) => setSenha(event.target.value)}
+                onChange={(event) =>
+                  setSenha(event.target.value)
+                }
                 disabled={carregando}
               />
 
@@ -165,11 +190,15 @@ export default function LoginPage() {
                     : 'Mostrar senha'
                 }
                 onClick={() =>
-                  setMostrarSenha((value) => !value)
+                  setMostrarSenha(
+                    (value) => !value,
+                  )
                 }
                 disabled={carregando}
               >
-                {mostrarSenha ? 'Ocultar' : 'Mostrar'}
+                {mostrarSenha
+                  ? 'Ocultar'
+                  : 'Mostrar'}
               </button>
             </div>
           </div>
@@ -236,7 +265,7 @@ export default function LoginPage() {
           <button
             type="button"
             className="secondary-button"
-            onClick={handleCriarConta}
+            onClick={onCriarConta}
             disabled={carregando}
           >
             Criar conta
