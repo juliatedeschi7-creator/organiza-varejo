@@ -6,7 +6,7 @@ export function Logo({ className = '' }: LogoProps) {
   return (
     <div className={`organiza-logo ${className}`}>
       <img
-        src="/logo-organiza-o.png"
+        src="/logo.png"
         alt="Organiza"
         className="organiza-logo__symbol"
       />
