@@ -83,10 +83,12 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <section className="login-card" aria-label="Entrar no Organiza">
+        {/* MARCA */}
         <div className="login-brand">
           <Logo />
         </div>
 
+        {/* SLOGAN */}
         <div className="login-slogan-bubble">
           <p className="login-slogan">
             Quem vende organiza.
@@ -95,6 +97,7 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* TÍTULO */}
         <div className="login-heading">
           <h1>Bem-vindo</h1>
 
@@ -103,9 +106,13 @@ export default function LoginPage() {
           </p>
         </div>
 
+        {/* FORMULÁRIO */}
         <form className="login-form" onSubmit={handleLogin}>
+          {/* E-MAIL */}
           <div className="field">
-            <label htmlFor="email">E-mail</label>
+            <label htmlFor="email">
+              E-mail
+            </label>
 
             <input
               id="email"
@@ -120,9 +127,12 @@ export default function LoginPage() {
             />
           </div>
 
+          {/* SENHA */}
           <div className="field">
             <div className="field-label-row">
-              <label htmlFor="senha">Senha</label>
+              <label htmlFor="senha">
+                Senha
+              </label>
 
               <button
                 type="button"
@@ -154,7 +164,9 @@ export default function LoginPage() {
                     ? 'Ocultar senha'
                     : 'Mostrar senha'
                 }
-                onClick={() => setMostrarSenha((value) => !value)}
+                onClick={() =>
+                  setMostrarSenha((value) => !value)
+                }
                 disabled={carregando}
               >
                 {mostrarSenha ? 'Ocultar' : 'Mostrar'}
@@ -162,17 +174,23 @@ export default function LoginPage() {
             </div>
           </div>
 
+          {/* CONTINUAR CONECTADO */}
           <label className="remember-option">
             <input
               type="checkbox"
               checked={lembrar}
-              onChange={(event) => setLembrar(event.target.checked)}
+              onChange={(event) =>
+                setLembrar(event.target.checked)
+              }
               disabled={carregando}
             />
 
-            <span>Continuar conectado</span>
+            <span>
+              Continuar conectado
+            </span>
           </label>
 
+          {/* ERRO */}
           {erro && (
             <div
               className="feedback feedback--error"
@@ -182,6 +200,7 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* MENSAGEM */}
           {mensagem && (
             <div
               className="feedback feedback--success"
@@ -191,21 +210,28 @@ export default function LoginPage() {
             </div>
           )}
 
+          {/* ENTRAR */}
           <button
             type="submit"
             className="primary-button"
             disabled={carregando}
           >
-            {carregando ? 'Entrando...' : 'Entrar'}
+            {carregando
+              ? 'Entrando...'
+              : 'Entrar'}
           </button>
         </form>
 
+        {/* DIVISOR */}
         <div className="login-divider">
           <span>ou</span>
         </div>
 
+        {/* CRIAR CONTA */}
         <div className="create-account">
-          <p>Ainda não tem uma conta?</p>
+          <p>
+            Ainda não tem uma conta?
+          </p>
 
           <button
             type="button"
