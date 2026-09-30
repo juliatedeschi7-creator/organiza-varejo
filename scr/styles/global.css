@@ -218,27 +218,6 @@ input:disabled {
    sem deixar o elemento infantil.
 */
 
-.login-slogan-bubble::before {
-  content: "";
-
-  position: absolute;
-
-  left: -13px;
-  top: 50%;
-
-  width: 8px;
-  height: 8px;
-
-  border-left: 1.5px solid var(--gray-400);
-  border-bottom: 1.5px solid var(--gray-400);
-
-  transform:
-    translateY(-50%)
-    rotate(20deg);
-
-  opacity: 0.7;
-}
-
 .login-slogan {
   position: relative;
   z-index: 1;
