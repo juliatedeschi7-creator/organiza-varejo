@@ -87,9 +87,13 @@ export default function LoginPage() {
           <Logo />
         </div>
 
-        <p className="login-slogan">
-          Quem vende organiza. Quem compra encontra.
-        </p>
+        <div className="login-slogan-bubble">
+          <p className="login-slogan">
+            Quem vende organiza.
+            <br />
+            Quem compra encontra.
+          </p>
+        </div>
 
         <div className="login-heading">
           <h1>Bem-vindo</h1>
