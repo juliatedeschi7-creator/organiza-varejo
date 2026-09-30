@@ -38,13 +38,13 @@ export default function LoginPage() {
 
     setMensagem('Login realizado. Preparando seu acesso...')
 
-    // A próxima etapa vai identificar:
-    // - perfil
-    // - empresas
-    // - filiais
-    // - cargos
-    // - permissões
-    // - contexto do usuário
+    // Próxima etapa:
+    // - identificar perfil
+    // - identificar empresas
+    // - identificar filiais
+    // - identificar cargos
+    // - identificar permissões
+    // - definir o contexto do usuário
   }
 
   async function handleEsqueciSenha() {
@@ -86,6 +86,10 @@ export default function LoginPage() {
         <div className="login-brand">
           <Logo />
         </div>
+
+        <p className="login-slogan">
+          Quem vende organiza. Quem compra encontra.
+        </p>
 
         <div className="login-heading">
           <h1>Bem-vindo</h1>
