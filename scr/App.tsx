@@ -35,6 +35,7 @@ function App() {
   return (
     <LoginPage
       onCriarConta={() => setPage('cadastro')}
+      onLoginSuccess={() => setPage('inicio')}
     />
   )
 }
