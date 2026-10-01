@@ -134,14 +134,6 @@ export default function CadastroPage({
           <Logo />
         </div>
 
-        <div className="login-slogan-bubble cadastro-slogan-bubble">
-          <p className="login-slogan">
-            Quem vende organiza.
-            <br />
-            Quem compra encontra.
-          </p>
-        </div>
-
         <div className="cadastro-heading">
           <h1>Criar sua conta</h1>
           <p>
