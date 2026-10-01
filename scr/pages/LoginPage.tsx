@@ -4,10 +4,12 @@ import { Logo } from '../components/Logo'
 
 interface LoginPageProps {
   onCriarConta: () => void
+  onLoginSuccess: () => void
 }
 
 export default function LoginPage({
   onCriarConta,
+  onLoginSuccess,
 }: LoginPageProps) {
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
@@ -17,9 +19,7 @@ export default function LoginPage({
   const [erro, setErro] = useState('')
   const [mensagem, setMensagem] = useState('')
 
-  async function handleLogin(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     setErro('')
@@ -32,32 +32,26 @@ export default function LoginPage({
 
     setCarregando(true)
 
-    const { error } =
-      await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: senha,
-      })
-
-    setCarregando(false)
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: senha,
+    })
 
     if (error) {
+      setCarregando(false)
       setErro('E-mail ou senha incorretos.')
       return
     }
 
-    setMensagem(
-      'Login realizado. Preparando seu acesso...',
-    )
-
     /*
-      Próxima etapa:
-      - identificar perfil
-      - identificar empresas
-      - identificar filiais
-      - identificar cargos
-      - identificar permissões
-      - definir o contexto do usuário
-    */
+     * O Supabase autenticou o usuário com sucesso.
+     *
+     * Neste momento, o App assume o controle da navegação
+     * e leva o usuário para a tela inicial do Organiza.
+     */
+    setMensagem('Login realizado. Preparando seu acesso...')
+
+    onLoginSuccess()
   }
 
   async function handleEsqueciSenha() {
@@ -65,19 +59,16 @@ export default function LoginPage({
     setMensagem('')
 
     if (!email.trim()) {
-      setErro(
-        'Informe seu e-mail para recuperar sua senha.',
-      )
+      setErro('Informe seu e-mail para recuperar sua senha.')
       return
     }
 
-    const { error } =
-      await supabase.auth.resetPasswordForEmail(
-        email.trim(),
-        {
-          redirectTo: `${window.location.origin}/redefinir-senha`,
-        },
-      )
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim(),
+      {
+        redirectTo: `${window.location.origin}/redefinir-senha`,
+      },
+    )
 
     if (error) {
       setErro(
@@ -97,12 +88,10 @@ export default function LoginPage({
         className="login-card"
         aria-label="Entrar no Organiza"
       >
-        {/* MARCA */}
         <div className="login-brand">
           <Logo />
         </div>
 
-        {/* SLOGAN */}
         <div className="login-slogan-bubble">
           <p className="login-slogan">
             Quem vende organiza.
@@ -111,25 +100,14 @@ export default function LoginPage({
           </p>
         </div>
 
-        {/* TÍTULO */}
         <div className="login-heading">
           <h1>Bem-vindo</h1>
-
-          <p>
-            Entre na sua conta para continuar.
-          </p>
+          <p>Entre na sua conta para continuar.</p>
         </div>
 
-        {/* FORMULÁRIO */}
-        <form
-          className="login-form"
-          onSubmit={handleLogin}
-        >
-          {/* E-MAIL */}
+        <form className="login-form" onSubmit={handleLogin}>
           <div className="field">
-            <label htmlFor="email">
-              E-mail
-            </label>
+            <label htmlFor="email">E-mail</label>
 
             <input
               id="email"
@@ -139,19 +117,14 @@ export default function LoginPage({
               inputMode="email"
               placeholder="seu@email.com"
               value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
+              onChange={(event) => setEmail(event.target.value)}
               disabled={carregando}
             />
           </div>
 
-          {/* SENHA */}
           <div className="field">
             <div className="field-label-row">
-              <label htmlFor="senha">
-                Senha
-              </label>
+              <label htmlFor="senha">Senha</label>
 
               <button
                 type="button"
@@ -167,17 +140,11 @@ export default function LoginPage({
               <input
                 id="senha"
                 name="senha"
-                type={
-                  mostrarSenha
-                    ? 'text'
-                    : 'password'
-                }
+                type={mostrarSenha ? 'text' : 'password'}
                 autoComplete="current-password"
                 placeholder="Digite sua senha"
                 value={senha}
-                onChange={(event) =>
-                  setSenha(event.target.value)
-                }
+                onChange={(event) => setSenha(event.target.value)}
                 disabled={carregando}
               />
 
@@ -190,20 +157,15 @@ export default function LoginPage({
                     : 'Mostrar senha'
                 }
                 onClick={() =>
-                  setMostrarSenha(
-                    (value) => !value,
-                  )
+                  setMostrarSenha((value) => !value)
                 }
                 disabled={carregando}
               >
-                {mostrarSenha
-                  ? 'Ocultar'
-                  : 'Mostrar'}
+                {mostrarSenha ? 'Ocultar' : 'Mostrar'}
               </button>
             </div>
           </div>
 
-          {/* CONTINUAR CONECTADO */}
           <label className="remember-option">
             <input
               type="checkbox"
@@ -214,12 +176,9 @@ export default function LoginPage({
               disabled={carregando}
             />
 
-            <span>
-              Continuar conectado
-            </span>
+            <span>Continuar conectado</span>
           </label>
 
-          {/* ERRO */}
           {erro && (
             <div
               className="feedback feedback--error"
@@ -229,7 +188,6 @@ export default function LoginPage({
             </div>
           )}
 
-          {/* MENSAGEM */}
           {mensagem && (
             <div
               className="feedback feedback--success"
@@ -239,28 +197,21 @@ export default function LoginPage({
             </div>
           )}
 
-          {/* ENTRAR */}
           <button
             type="submit"
             className="primary-button"
             disabled={carregando}
           >
-            {carregando
-              ? 'Entrando...'
-              : 'Entrar'}
+            {carregando ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
 
-        {/* DIVISOR */}
         <div className="login-divider">
           <span>ou</span>
         </div>
 
-        {/* CRIAR CONTA */}
         <div className="create-account">
-          <p>
-            Ainda não tem uma conta?
-          </p>
+          <p>Ainda não tem uma conta?</p>
 
           <button
             type="button"
