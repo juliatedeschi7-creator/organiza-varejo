@@ -800,3 +800,499 @@ input:disabled {
     font-size: 11.5px;
   }
 }
+/* =========================================
+   INÍCIO — UNIVERSO ORGANIZA
+   ========================================= */
+
+.inicio-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  padding: 52px 24px 70px;
+  background: var(--off-white);
+}
+
+.inicio-content {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.inicio-header {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 78px;
+}
+
+.inicio-header .organiza-logo__symbol {
+  width: 74px;
+  height: auto;
+}
+
+.inicio-header .organiza-logo__name {
+  font-size: 29px;
+}
+
+/* -----------------------------------------
+   ELEMENTOS DE FUNDO
+   ----------------------------------------- */
+
+.inicio-background-shape {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.7;
+}
+
+.inicio-background-shape--top {
+  top: -150px;
+  left: -130px;
+  width: 330px;
+  height: 330px;
+  border-radius: 50%;
+  background: rgba(231, 178, 184, 0.16);
+  border: 1px solid rgba(231, 178, 184, 0.35);
+}
+
+.inicio-background-shape--bottom {
+  right: -170px;
+  bottom: -190px;
+  width: 390px;
+  height: 390px;
+  border-radius: 50%;
+  background: rgba(181, 190, 166, 0.15);
+  border: 1px solid rgba(181, 190, 166, 0.35);
+}
+
+/* -----------------------------------------
+   INTRODUÇÃO
+   ----------------------------------------- */
+
+.inicio-intro {
+  text-align: center;
+  margin-bottom: 46px;
+}
+
+.inicio-intro h1 {
+  margin: 0;
+  color: var(--black);
+  font-size: clamp(34px, 5vw, 48px);
+  font-weight: 650;
+  letter-spacing: -1.8px;
+  line-height: 1.12;
+}
+
+.inicio-wave {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 0.75em;
+  vertical-align: 8%;
+}
+
+.inicio-intro h2 {
+  margin: 13px 0 0;
+  color: var(--gray-900);
+  font-size: clamp(23px, 3.2vw, 31px);
+  font-weight: 550;
+  letter-spacing: -0.8px;
+  line-height: 1.25;
+}
+
+.inicio-intro p {
+  margin: 16px auto 0;
+  color: var(--gray-500);
+  font-size: 15px;
+  font-weight: 450;
+  line-height: 1.65;
+}
+
+/* -----------------------------------------
+   OPÇÕES
+   ----------------------------------------- */
+
+.inicio-options {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.inicio-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 52px;
+  align-items: center;
+  width: 100%;
+  min-height: 174px;
+  padding: 27px 28px;
+  border: 1px solid var(--gray-300);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--black);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.inicio-option:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(23, 23, 23, 0.07);
+}
+
+.inicio-option:active {
+  transform: translateY(0);
+}
+
+/* opção explorar */
+
+.inicio-option--comprar {
+  border-color: rgba(221, 165, 174, 0.58);
+}
+
+.inicio-option--comprar:hover {
+  border-color: rgba(211, 145, 157, 0.78);
+  background: rgba(255, 247, 247, 0.88);
+}
+
+/* opção negócio */
+
+.inicio-option--negocio {
+  border-color: rgba(176, 184, 163, 0.72);
+}
+
+.inicio-option--negocio:hover {
+  border-color: rgba(153, 165, 136, 0.9);
+  background: rgba(249, 251, 246, 0.9);
+}
+
+/* -----------------------------------------
+   ÍCONES
+   ----------------------------------------- */
+
+.inicio-option__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 82px;
+  height: 82px;
+  border-radius: 25px;
+}
+
+.inicio-option__icon svg {
+  width: 45px;
+  height: 45px;
+}
+
+.inicio-option--comprar .inicio-option__icon {
+  color: #a95867;
+  background: rgba(226, 174, 182, 0.27);
+}
+
+.inicio-option--negocio .inicio-option__icon {
+  color: #68735d;
+  background: rgba(186, 195, 174, 0.31);
+}
+
+/* -----------------------------------------
+   TEXTO
+   ----------------------------------------- */
+
+.inicio-option__content {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0 25px;
+}
+
+.inicio-option__content strong {
+  color: var(--gray-900);
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.45px;
+  line-height: 1.25;
+}
+
+.inicio-option__content span {
+  max-width: 520px;
+  color: var(--gray-500);
+  font-size: 14px;
+  font-weight: 450;
+  line-height: 1.55;
+}
+
+/* -----------------------------------------
+   SETA
+   ----------------------------------------- */
+
+.inicio-option__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 27px;
+  font-weight: 400;
+  line-height: 1;
+  transition:
+    transform 180ms ease,
+    background 180ms ease;
+}
+
+.inicio-option:hover .inicio-option__arrow {
+  transform: translateX(3px);
+}
+
+.inicio-option--comprar .inicio-option__arrow {
+  color: #8f4c59;
+  background: rgba(226, 174, 182, 0.26);
+}
+
+.inicio-option--negocio .inicio-option__arrow {
+  color: #5f6c55;
+  background: rgba(186, 195, 174, 0.3);
+}
+
+/* -----------------------------------------
+   AGORA NÃO
+   ----------------------------------------- */
+
+.inicio-skip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 32px auto 0;
+  padding: 8px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.inicio-skip span {
+  color: var(--gray-700);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: underline;
+  text-decoration-color: var(--gray-300);
+  text-underline-offset: 5px;
+  transition: color var(--transition);
+}
+
+.inicio-skip small {
+  color: var(--gray-400);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.inicio-skip:hover span {
+  color: var(--black);
+}
+
+/* -----------------------------------------
+   FOCO / ACESSIBILIDADE
+   ----------------------------------------- */
+
+.inicio-option:focus-visible,
+.inicio-skip:focus-visible {
+  outline: 2px solid var(--gray-700);
+  outline-offset: 4px;
+}
+
+/* -----------------------------------------
+   TABLET / NOTEBOOK
+   ----------------------------------------- */
+
+@media (min-width: 700px) {
+  .inicio-page {
+    align-items: center;
+    padding-top: 60px;
+    padding-bottom: 80px;
+  }
+
+  .inicio-content {
+    max-width: 820px;
+  }
+
+  .inicio-header {
+    margin-bottom: 70px;
+  }
+
+  .inicio-intro {
+    margin-bottom: 48px;
+  }
+}
+
+/* -----------------------------------------
+   CELULAR
+   ----------------------------------------- */
+
+@media (max-width: 599px) {
+  .inicio-page {
+    padding: 30px 18px 48px;
+  }
+
+  .inicio-header {
+    margin-bottom: 48px;
+  }
+
+  .inicio-header .organiza-logo__symbol {
+    width: 62px;
+  }
+
+  .inicio-header .organiza-logo__name {
+    font-size: 25px;
+  }
+
+  .inicio-intro {
+    margin-bottom: 34px;
+  }
+
+  .inicio-intro h1 {
+    font-size: 34px;
+    letter-spacing: -1.3px;
+  }
+
+  .inicio-intro h2 {
+    margin-top: 11px;
+    font-size: 23px;
+  }
+
+  .inicio-intro p {
+    margin-top: 13px;
+    font-size: 13.5px;
+    line-height: 1.55;
+  }
+
+  .inicio-desktop-break {
+    display: none;
+  }
+
+  .inicio-options {
+    gap: 13px;
+  }
+
+  .inicio-option {
+    grid-template-columns: 62px minmax(0, 1fr) 38px;
+    min-height: 137px;
+    padding: 18px 15px;
+    border-radius: 20px;
+  }
+
+  .inicio-option__icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 18px;
+  }
+
+  .inicio-option__icon svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .inicio-option__content {
+    gap: 6px;
+    padding: 0 12px;
+  }
+
+  .inicio-option__content strong {
+    font-size: 16px;
+    letter-spacing: -0.25px;
+  }
+
+  .inicio-option__content span {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .inicio-option__arrow {
+    width: 36px;
+    height: 36px;
+    font-size: 21px;
+  }
+
+  .inicio-skip {
+    margin-top: 25px;
+  }
+
+  .inicio-background-shape--top {
+    top: -110px;
+    left: -145px;
+    width: 260px;
+    height: 260px;
+  }
+
+  .inicio-background-shape--bottom {
+    right: -150px;
+    bottom: -150px;
+    width: 300px;
+    height: 300px;
+  }
+}
+
+/* -----------------------------------------
+   CELULARES PEQUENOS
+   ----------------------------------------- */
+
+@media (max-width: 380px) {
+  .inicio-page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .inicio-header {
+    margin-bottom: 40px;
+  }
+
+  .inicio-intro h1 {
+    font-size: 31px;
+  }
+
+  .inicio-intro h2 {
+    font-size: 21px;
+  }
+
+  .inicio-option {
+    grid-template-columns: 54px minmax(0, 1fr) 34px;
+    min-height: 128px;
+    padding: 15px 12px;
+  }
+
+  .inicio-option__icon {
+    width: 52px;
+    height: 52px;
+  }
+
+  .inicio-option__icon svg {
+    width: 29px;
+    height: 29px;
+  }
+
+  .inicio-option__content {
+    padding: 0 9px;
+  }
+
+  .inicio-option__content strong {
+    font-size: 14.5px;
+  }
+
+  .inicio-option__content span {
+    font-size: 11.5px;
+  }
+
+  .inicio-option__arrow {
+    width: 32px;
+    height: 32px;
+    font-size: 19px;
+  }
+}
