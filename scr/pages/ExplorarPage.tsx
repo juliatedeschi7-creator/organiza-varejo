@@ -2,14 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
 
-interface ExplorarPageProps {
-  onAbrirLoja: (slug: string) => void
-  onVoltar?: () => void
-}
-
-interface LojaPublica {
+interface Loja {
   empresa_id: string
-  empresa_slug: string
+  empresa_slug: string | null
   nome_fantasia: string | null
   empresa_logo_url: string | null
   empresa_banner_url: string | null
@@ -31,11 +26,14 @@ interface LojaPublica {
   filial_longitude: number | null
 }
 
+interface ExplorarPageProps {
+  onVoltar?: () => void
+}
+
 export default function ExplorarPage({
-  onAbrirLoja,
   onVoltar,
 }: ExplorarPageProps) {
-  const [lojas, setLojas] = useState<LojaPublica[]>([])
+  const [lojas, setLojas] = useState<Loja[]>([])
   const [busca, setBusca] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
@@ -48,10 +46,12 @@ export default function ExplorarPage({
       const { data, error } = await supabase
         .from('catalogo_publico_loja')
         .select('*')
-        .order('nome_fantasia', { ascending: true })
+        .order('nome_fantasia', {
+          ascending: true,
+        })
 
       if (error) {
-        console.error('Erro ao carregar lojas públicas:', error)
+        console.error('Erro ao carregar lojas:', error)
         setErro(
           'Não foi possível carregar as lojas agora. Tente novamente.',
         )
@@ -60,7 +60,7 @@ export default function ExplorarPage({
         return
       }
 
-      setLojas((data ?? []) as LojaPublica[])
+      setLojas((data ?? []) as Loja[])
       setCarregando(false)
     }
 
@@ -68,234 +68,290 @@ export default function ExplorarPage({
   }, [])
 
   const lojasFiltradas = useMemo(() => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR')
+    const termo = busca.trim().toLowerCase()
 
     if (!termo) {
       return lojas
     }
 
     return lojas.filter((loja) => {
-      const nome = loja.nome_fantasia?.toLocaleLowerCase('pt-BR') ?? ''
-      const cidadeEmpresa =
-        loja.empresa_cidade?.toLocaleLowerCase('pt-BR') ?? ''
-      const cidadeFilial =
-        loja.filial_cidade?.toLocaleLowerCase('pt-BR') ?? ''
-      const estadoEmpresa =
-        loja.empresa_estado?.toLocaleLowerCase('pt-BR') ?? ''
-      const estadoFilial =
-        loja.filial_estado?.toLocaleLowerCase('pt-BR') ?? ''
-      const filial = loja.filial_nome?.toLocaleLowerCase('pt-BR') ?? ''
+      const nome = loja.nome_fantasia?.toLowerCase() ?? ''
+      const cidade =
+        loja.filial_cidade?.toLowerCase() ??
+        loja.empresa_cidade?.toLowerCase() ??
+        ''
+      const estado =
+        loja.filial_estado?.toLowerCase() ??
+        loja.empresa_estado?.toLowerCase() ??
+        ''
 
       return (
         nome.includes(termo) ||
-        cidadeEmpresa.includes(termo) ||
-        cidadeFilial.includes(termo) ||
-        estadoEmpresa.includes(termo) ||
-        estadoFilial.includes(termo) ||
-        filial.includes(termo)
+        cidade.includes(termo) ||
+        estado.includes(termo)
       )
     })
   }, [lojas, busca])
 
-  function obterCidade(loja: LojaPublica) {
-    return loja.filial_cidade || loja.empresa_cidade || ''
+  function abrirLoja(slug: string | null) {
+    if (!slug) {
+      return
+    }
+
+    window.location.href = `/vitrine/${slug}`
   }
 
-  function obterEstado(loja: LojaPublica) {
-    return loja.filial_estado || loja.empresa_estado || ''
-  }
+  function obterLocalizacao(loja: Loja) {
+    const cidade =
+      loja.filial_cidade || loja.empresa_cidade
 
-  function obterLocalizacao(loja: LojaPublica) {
-    const cidade = obterCidade(loja)
-    const estado = obterEstado(loja)
+    const estado =
+      loja.filial_estado || loja.empresa_estado
 
     if (cidade && estado) {
-      return `${cidade} - ${estado}`
+      return `${cidade} • ${estado}`
     }
 
-    return cidade || estado || 'Localização não informada'
+    if (cidade) {
+      return cidade
+    }
+
+    if (estado) {
+      return estado
+    }
+
+    return 'Localização não informada'
   }
 
-  function obterInicial(nome: string | null) {
-    if (!nome?.trim()) {
-      return 'O'
-    }
-
-    return nome.trim().charAt(0).toUpperCase()
+  function obterLogo(loja: Loja) {
+    return loja.empresa_logo_url || loja.empresa_banner_url
   }
 
   return (
     <main className="explorar-page">
-      <header className="explorar-header">
-        <div className="explorar-header__top">
-          <div className="explorar-header__brand">
+      <div className="explorar-container">
+        <header className="explorar-header">
+          <div className="explorar-header-top">
+            {onVoltar ? (
+              <button
+                type="button"
+                className="explorar-back-button"
+                onClick={onVoltar}
+                aria-label="Voltar"
+              >
+                <span aria-hidden="true">←</span>
+              </button>
+            ) : null}
+
             <Logo />
           </div>
 
-          {onVoltar && (
-            <button
-              type="button"
-              className="explorar-back-button"
-              onClick={onVoltar}
-            >
-              <span aria-hidden="true">←</span>
-              <span>Voltar</span>
-            </button>
-          )}
-        </div>
+          <div className="explorar-heading">
+            <span className="explorar-eyebrow">
+              Organiza Varejo
+            </span>
 
-        <div className="explorar-heading">
-          <p className="explorar-eyebrow">Organiza Varejo</p>
-
-          <h1>Explore</h1>
-
-          <p>
-            Encontre lojas, serviços e negócios locais.
-          </p>
-        </div>
-
-        <div className="explorar-search">
-          <span
-            className="explorar-search__icon"
-            aria-hidden="true"
-          >
-            ⌕
-          </span>
-
-          <input
-            type="search"
-            value={busca}
-            onChange={(event) => setBusca(event.target.value)}
-            placeholder="Buscar lojas ou cidades"
-            aria-label="Buscar lojas ou cidades"
-          />
-
-          {busca && (
-            <button
-              type="button"
-              className="explorar-search__clear"
-              onClick={() => setBusca('')}
-              aria-label="Limpar busca"
-            >
-              ×
-            </button>
-          )}
-        </div>
-      </header>
-
-      <section className="explorar-content">
-        <div className="explorar-section-heading">
-          <div>
-            <h2>Negócios locais</h2>
-
-            {!carregando && !erro && (
-              <p>
-                {lojasFiltradas.length === 1
-                  ? '1 negócio encontrado'
-                  : `${lojasFiltradas.length} negócios encontrados`}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {carregando && (
-          <div className="explorar-state">
-            <div
-              className="explorar-loading"
-              aria-hidden="true"
-            />
-
-            <p>Encontrando negócios...</p>
-          </div>
-        )}
-
-        {!carregando && erro && (
-          <div className="explorar-state explorar-state--error">
-            <div className="explorar-state__icon">!</div>
-
-            <h2>Não conseguimos carregar as lojas</h2>
-
-            <p>{erro}</p>
-
-            <button
-              type="button"
-              className="explorar-retry-button"
-              onClick={() => window.location.reload()}
-            >
-              Tentar novamente
-            </button>
-          </div>
-        )}
-
-        {!carregando && !erro && lojasFiltradas.length === 0 && (
-          <div className="explorar-state">
-            <div className="explorar-state__icon">⌕</div>
-
-            <h2>
-              {busca
-                ? 'Nenhum negócio encontrado'
-                : 'Ainda não há negócios disponíveis'}
-            </h2>
+            <h1>Explore</h1>
 
             <p>
-              {busca
-                ? 'Tente buscar por outro nome ou cidade.'
-                : 'Novas lojas poderão aparecer aqui conforme forem publicadas no Organiza.'}
+              Encontre lojas, serviços e negócios locais.
             </p>
           </div>
-        )}
+        </header>
 
-        {!carregando && !erro && lojasFiltradas.length > 0 && (
-          <div className="lojas-grid">
-            {lojasFiltradas.map((loja) => {
-              const nome = loja.nome_fantasia || 'Negócio local'
+        <section
+          className="explorar-search-section"
+          aria-label="Pesquisar negócios"
+        >
+          <label
+            htmlFor="explorar-busca"
+            className="explorar-search-label"
+          >
+            Buscar
+          </label>
 
-              return (
-                <button
-                  key={`${loja.empresa_id}-${loja.filial_id ?? 'sem-filial'}`}
-                  type="button"
-                  className="loja-card"
-                  onClick={() => onAbrirLoja(loja.empresa_slug)}
-                >
-                  <div className="loja-card__visual">
-                    {loja.empresa_logo_url ? (
-                      <img
-                        src={loja.empresa_logo_url}
-                        alt=""
-                        className="loja-card__logo"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="loja-card__logo loja-card__logo--fallback">
-                        {obterInicial(nome)}
-                      </div>
-                    )}
+          <div className="explorar-search">
+            <span
+              className="explorar-search-icon"
+              aria-hidden="true"
+            >
+              ⌕
+            </span>
 
-                    <span className="loja-card__arrow" aria-hidden="true">
-                      ↗
-                    </span>
-                  </div>
+            <input
+              id="explorar-busca"
+              type="search"
+              value={busca}
+              onChange={(event) =>
+                setBusca(event.target.value)
+              }
+              placeholder="Buscar lojas ou negócios"
+              autoComplete="off"
+            />
 
-                  <div className="loja-card__content">
-                    <h3>{nome}</h3>
-
-                    {loja.filial_nome && (
-                      <p className="loja-card__branch">
-                        {loja.filial_nome}
-                      </p>
-                    )}
-
-                    <p className="loja-card__location">
-                      <span aria-hidden="true">⌖</span>
-                      {obterLocalizacao(loja)}
-                    </p>
-                  </div>
-                </button>
-              )
-            })}
+            {busca ? (
+              <button
+                type="button"
+                className="explorar-search-clear"
+                onClick={() => setBusca('')}
+                aria-label="Limpar busca"
+              >
+                ×
+              </button>
+            ) : null}
           </div>
-        )}
-      </section>
+        </section>
+
+        <section className="explorar-content">
+          <div className="explorar-section-heading">
+            <div>
+              <h2>
+                {busca
+                  ? 'Resultados'
+                  : 'Negócios para você conhecer'}
+              </h2>
+
+              {!carregando && !erro ? (
+                <span>
+                  {lojasFiltradas.length}{' '}
+                  {lojasFiltradas.length === 1
+                    ? 'negócio'
+                    : 'negócios'}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {carregando ? (
+            <div className="explorar-state">
+              <div
+                className="explorar-loading"
+                aria-hidden="true"
+              />
+
+              <p>Carregando negócios...</p>
+            </div>
+          ) : null}
+
+          {!carregando && erro ? (
+            <div className="explorar-state explorar-state-error">
+              <div className="explorar-state-icon">
+                !
+              </div>
+
+              <h3>Não foi possível carregar</h3>
+
+              <p>{erro}</p>
+
+              <button
+                type="button"
+                className="explorar-retry-button"
+                onClick={() => window.location.reload()}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          ) : null}
+
+          {!carregando &&
+          !erro &&
+          lojasFiltradas.length === 0 ? (
+            <div className="explorar-state">
+              <div className="explorar-empty-icon">
+                ⌕
+              </div>
+
+              <h3>
+                {busca
+                  ? 'Nenhum negócio encontrado'
+                  : 'Ainda não há negócios para mostrar'}
+              </h3>
+
+              <p>
+                {busca
+                  ? 'Tente buscar por outro nome ou localização.'
+                  : 'Novas lojas e negócios poderão aparecer aqui conforme forem publicados.'}
+              </p>
+            </div>
+          ) : null}
+
+          {!carregando &&
+          !erro &&
+          lojasFiltradas.length > 0 ? (
+            <div className="explorar-grid">
+              {lojasFiltradas.map((loja) => {
+                const logo = obterLogo(loja)
+
+                return (
+                  <article
+                    key={`${loja.empresa_id}-${loja.filial_id ?? 'empresa'}`}
+                    className="loja-card"
+                  >
+                    <button
+                      type="button"
+                      className="loja-card-button"
+                      onClick={() =>
+                        abrirLoja(loja.empresa_slug)
+                      }
+                      disabled={!loja.empresa_slug}
+                    >
+                      <div className="loja-card-visual">
+                        {logo ? (
+                          <img
+                            src={logo}
+                            alt=""
+                            className="loja-card-image"
+                          />
+                        ) : (
+                          <div
+                            className="loja-card-placeholder"
+                            aria-hidden="true"
+                          >
+                            <span>
+                              {(loja.nome_fantasia ||
+                                'L')[0].toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="loja-card-content">
+                        <div className="loja-card-title-row">
+                          <h3>
+                            {loja.nome_fantasia ||
+                              'Negócio sem nome'}
+                          </h3>
+
+                          <span
+                            className="loja-card-arrow"
+                            aria-hidden="true"
+                          >
+                            →
+                          </span>
+                        </div>
+
+                        <p className="loja-card-location">
+                          {obterLocalizacao(loja)}
+                        </p>
+
+                        {loja.filial_nome ? (
+                          <p className="loja-card-branch">
+                            {loja.filial_nome}
+                          </p>
+                        ) : null}
+
+                        <span className="loja-card-link">
+                          Ver loja
+                        </span>
+                      </div>
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
+          ) : null}
+        </section>
+      </div>
     </main>
   )
 }
