@@ -23,9 +23,7 @@ export default function CadastroPage({
   const [erro, setErro] = useState('')
   const [mensagem, setMensagem] = useState('')
 
-  async function handleCadastro(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function handleCadastro(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     setErro('')
@@ -50,9 +48,7 @@ export default function CadastroPage({
     }
 
     if (senha.length < 6) {
-      setErro(
-        'Sua senha precisa ter pelo menos 6 caracteres.',
-      )
+      setErro('Sua senha precisa ter pelo menos 6 caracteres.')
       return
     }
 
@@ -62,9 +58,7 @@ export default function CadastroPage({
     }
 
     if (!aceitouTermos) {
-      setErro(
-        'Você precisa concordar com os termos para criar sua conta.',
-      )
+      setErro('Você precisa concordar com os termos para criar sua conta.')
       return
     }
 
@@ -83,25 +77,15 @@ export default function CadastroPage({
     setCarregando(false)
 
     if (error) {
-      if (
-        error.message.toLowerCase().includes('already registered')
-      ) {
+      if (error.message.toLowerCase().includes('already registered')) {
         setErro(
           'Este e-mail já possui uma conta. Tente entrar ou recuperar sua senha.',
         )
       } else {
-        setErro(
-          'Não foi possível criar sua conta. Tente novamente.',
-        )
+        setErro('Não foi possível criar sua conta. Tente novamente.')
       }
-
       return
     }
-
-    /*
-      Quando a confirmação de e-mail está ativada no Supabase,
-      o usuário é criado, mas a sessão ainda não existe.
-    */
 
     if (data.user && !data.session) {
       setMensagem(
@@ -117,16 +101,10 @@ export default function CadastroPage({
       return
     }
 
-    /*
-      Se a confirmação de e-mail estiver desativada,
-      o Supabase pode criar a sessão imediatamente.
-    */
-
     if (data.session) {
       setMensagem(
         'Conta criada com sucesso! Preparando seu acesso...',
       )
-
       return
     }
 
@@ -141,7 +119,6 @@ export default function CadastroPage({
         className="login-card cadastro-card"
         aria-label="Criar conta no Organiza"
       >
-        {/* VOLTAR */}
         <button
           type="button"
           className="back-button"
@@ -153,12 +130,10 @@ export default function CadastroPage({
           <span>Voltar</span>
         </button>
 
-        {/* MARCA */}
         <div className="login-brand cadastro-brand">
           <Logo />
         </div>
 
-        {/* SLOGAN */}
         <div className="login-slogan-bubble cadastro-slogan-bubble">
           <p className="login-slogan">
             Quem vende organiza.
@@ -167,26 +142,19 @@ export default function CadastroPage({
           </p>
         </div>
 
-        {/* TÍTULO */}
         <div className="cadastro-heading">
           <h1>Criar sua conta</h1>
-
           <p>
-            Uma conta para usar o Organiza.
+            Crie sua conta e faça parte do universo Organiza.
+            <br />
+            Um conjunto de soluções feito para organizar, facilitar e
+            aproximar clientes dos negócios locais.
           </p>
         </div>
 
-        {/* FORMULÁRIO */}
-        <form
-          className="login-form cadastro-form"
-          onSubmit={handleCadastro}
-        >
-          {/* NOME */}
+        <form className="login-form cadastro-form" onSubmit={handleCadastro}>
           <div className="field">
-            <label htmlFor="cadastro-nome">
-              Nome
-            </label>
-
+            <label htmlFor="cadastro-nome">Nome</label>
             <input
               id="cadastro-nome"
               name="nome"
@@ -194,19 +162,13 @@ export default function CadastroPage({
               autoComplete="name"
               placeholder="Seu nome"
               value={nome}
-              onChange={(event) =>
-                setNome(event.target.value)
-              }
+              onChange={(event) => setNome(event.target.value)}
               disabled={carregando}
             />
           </div>
 
-          {/* E-MAIL */}
           <div className="field">
-            <label htmlFor="cadastro-email">
-              E-mail
-            </label>
-
+            <label htmlFor="cadastro-email">E-mail</label>
             <input
               id="cadastro-email"
               name="email"
@@ -215,18 +177,13 @@ export default function CadastroPage({
               inputMode="email"
               placeholder="seu@email.com"
               value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
+              onChange={(event) => setEmail(event.target.value)}
               disabled={carregando}
             />
           </div>
 
-          {/* SENHA */}
           <div className="field">
-            <label htmlFor="cadastro-senha">
-              Senha
-            </label>
+            <label htmlFor="cadastro-senha">Senha</label>
 
             <div className="password-field">
               <input
@@ -236,9 +193,7 @@ export default function CadastroPage({
                 autoComplete="new-password"
                 placeholder="Crie uma senha"
                 value={senha}
-                onChange={(event) =>
-                  setSenha(event.target.value)
-                }
+                onChange={(event) => setSenha(event.target.value)}
                 disabled={carregando}
               />
 
@@ -246,13 +201,9 @@ export default function CadastroPage({
                 type="button"
                 className="password-toggle"
                 aria-label={
-                  mostrarSenha
-                    ? 'Ocultar senha'
-                    : 'Mostrar senha'
+                  mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'
                 }
-                onClick={() =>
-                  setMostrarSenha((value) => !value)
-                }
+                onClick={() => setMostrarSenha((value) => !value)}
                 disabled={carregando}
               >
                 {mostrarSenha ? 'Ocultar' : 'Mostrar'}
@@ -260,7 +211,6 @@ export default function CadastroPage({
             </div>
           </div>
 
-          {/* CONFIRMAR SENHA */}
           <div className="field">
             <label htmlFor="cadastro-confirmar-senha">
               Confirmar senha
@@ -270,17 +220,11 @@ export default function CadastroPage({
               <input
                 id="cadastro-confirmar-senha"
                 name="confirmar-senha"
-                type={
-                  mostrarConfirmacao
-                    ? 'text'
-                    : 'password'
-                }
+                type={mostrarConfirmacao ? 'text' : 'password'}
                 autoComplete="new-password"
                 placeholder="Digite a senha novamente"
                 value={confirmarSenha}
-                onChange={(event) =>
-                  setConfirmarSenha(event.target.value)
-                }
+                onChange={(event) => setConfirmarSenha(event.target.value)}
                 disabled={carregando}
               />
 
@@ -293,69 +237,49 @@ export default function CadastroPage({
                     : 'Mostrar confirmação da senha'
                 }
                 onClick={() =>
-                  setMostrarConfirmacao(
-                    (value) => !value,
-                  )
+                  setMostrarConfirmacao((value) => !value)
                 }
                 disabled={carregando}
               >
-                {mostrarConfirmacao
-                  ? 'Ocultar'
-                  : 'Mostrar'}
+                {mostrarConfirmacao ? 'Ocultar' : 'Mostrar'}
               </button>
             </div>
           </div>
 
-          {/* TERMOS */}
           <label className="terms-option">
             <input
               type="checkbox"
               checked={aceitouTermos}
-              onChange={(event) =>
-                setAceitouTermos(event.target.checked)
-              }
+              onChange={(event) => setAceitouTermos(event.target.checked)}
               disabled={carregando}
             />
 
             <span>
-              Li e concordo com os termos de uso e a
-              política de privacidade.
+              Li e concordo com os termos de uso e a política de privacidade.
             </span>
           </label>
 
-          {/* ERRO */}
           {erro && (
-            <div
-              className="feedback feedback--error"
-              role="alert"
-            >
+            <div className="feedback feedback--error" role="alert">
               {erro}
             </div>
           )}
 
-          {/* MENSAGEM */}
           {mensagem && (
-            <div
-              className="feedback feedback--success"
-              role="status"
-            >
+            <div className="feedback feedback--success" role="status">
               {mensagem}
             </div>
           )}
 
-          {/* CRIAR CONTA */}
           <button
             type="submit"
             className="primary-button"
             disabled={carregando}
           >
-            {carregando
-              ? 'Criando conta...'
-              : 'Criar conta'}
+            {carregando ? 'Criando conta...' : 'Criar conta'}
           </button>
         </form>
 
-        {/* VOLTAR PARA LOGIN */}
         <div className="cadastro-login-link">
           <p>Já tem uma conta?</p>
 
