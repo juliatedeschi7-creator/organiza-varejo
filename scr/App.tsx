@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import LoginPage from './pages/LoginPage'
 import CadastroPage from './pages/CadastroPage'
+import InicioPage from './pages/InicioPage'
 
-type Page = 'login' | 'cadastro'
+type Page = 'login' | 'cadastro' | 'inicio'
 
 function App() {
   const [page, setPage] = useState<Page>('login')
@@ -11,6 +12,22 @@ function App() {
     return (
       <CadastroPage
         onVoltarLogin={() => setPage('login')}
+      />
+    )
+  }
+
+  if (page === 'inicio') {
+    return (
+      <InicioPage
+        onExplorar={() => {
+          console.log('Abrir área de lojas e compras')
+        }}
+        onCadastrarNegocio={() => {
+          console.log('Abrir cadastro do negócio')
+        }}
+        onAgoraNao={() => {
+          setPage('login')
+        }}
       />
     )
   }
