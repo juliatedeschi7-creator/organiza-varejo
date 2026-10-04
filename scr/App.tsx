@@ -51,6 +51,9 @@ function App() {
           setEmpresaId(null)
           setPage('login')
         }}
+        onAbrirVitrine={() => {
+          setPage('pagina-publica')
+        }}
       />
     )
   }
