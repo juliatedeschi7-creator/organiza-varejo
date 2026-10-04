@@ -174,9 +174,9 @@ function PaginaPublicaNegocioPage({
   }
 
   function abrirWhatsApp() {
-    const numero =
-      formatarWhatsApp(filial?.whatsapp) ||
-      formatarWhatsApp(empresa?.whatsapp)
+const numero =
+  formatarWhatsApp(filial?.whatsapp ?? null) ||
+  formatarWhatsApp(empresa?.whatsapp ?? null)
 
     if (!numero) {
       window.alert('Este negócio ainda não cadastrou um WhatsApp.')
