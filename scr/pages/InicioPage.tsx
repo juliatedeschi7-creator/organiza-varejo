@@ -50,8 +50,10 @@ export default function InicioPage({
         )
 
         setErroEmpresas(
-          'Não foi possível identificar sua conta.',
+          usuarioError.message ||
+            'Não foi possível identificar sua conta.',
         )
+
         setCarregandoEmpresas(false)
         return
       }
@@ -59,11 +61,14 @@ export default function InicioPage({
       const usuario = usuarioData.user
 
       if (!usuario) {
-        console.error('Nenhum usuário autenticado encontrado.')
+        console.error(
+          'Nenhum usuário autenticado encontrado.',
+        )
 
         setErroEmpresas(
           'Não foi possível identificar sua conta.',
         )
+
         setCarregandoEmpresas(false)
         return
       }
@@ -77,7 +82,15 @@ export default function InicioPage({
         setNome(nomeUsuario.split(' ')[0])
       }
 
-      console.log('USUÁRIO LOGADO:', usuario.id)
+      console.log(
+        'USUÁRIO LOGADO NO ORGANIZA:',
+        usuario,
+      )
+
+      console.log(
+        'ID DO USUÁRIO LOGADO:',
+        usuario.id,
+      )
 
       const { data: membrosData, error: membrosError } =
         await supabase
@@ -85,7 +98,11 @@ export default function InicioPage({
           .select('empresa_id, status, ativo')
           .eq('usuario_id', usuario.id)
 
-      console.log('MEMBROS ENCONTRADOS:', membrosData)
+      console.log(
+        'MEMBROS ENCONTRADOS:',
+        membrosData,
+      )
+
       console.log(
         'ERRO AO BUSCAR MEMBROS:',
         membrosError,
@@ -98,14 +115,16 @@ export default function InicioPage({
         )
 
         setErroEmpresas(
-          'Não foi possível carregar suas empresas.',
+          `${membrosError.message || 'Erro ao carregar empresas.'} | Usuário: ${usuario.id}`,
         )
+
         setEmpresas([])
         setCarregandoEmpresas(false)
         return
       }
 
-      const membros = (membrosData ?? []) as MembroEmpresa[]
+      const membros =
+        (membrosData ?? []) as MembroEmpresa[]
 
       const empresaIds = membros
         .filter(
@@ -115,7 +134,10 @@ export default function InicioPage({
         )
         .map((membro) => membro.empresa_id)
 
-      console.log('EMPRESAS ENCONTRADAS NOS VÍNCULOS:', empresaIds)
+      console.log(
+        'EMPRESAS ENCONTRADAS NOS VÍNCULOS:',
+        empresaIds,
+      )
 
       if (empresaIds.length === 0) {
         setEmpresas([])
@@ -141,7 +163,11 @@ export default function InicioPage({
             ascending: true,
           })
 
-      console.log('EMPRESAS CARREGADAS:', empresasData)
+      console.log(
+        'EMPRESAS CARREGADAS:',
+        empresasData,
+      )
+
       console.log(
         'ERRO AO BUSCAR EMPRESAS:',
         empresasError,
@@ -154,8 +180,9 @@ export default function InicioPage({
         )
 
         setErroEmpresas(
-          'Não foi possível carregar os dados das suas empresas.',
+          `${empresasError.message || 'Erro ao carregar os dados das empresas.'} | Usuário: ${usuario.id}`,
         )
+
         setEmpresas([])
         setCarregandoEmpresas(false)
         return
@@ -480,6 +507,7 @@ export default function InicioPage({
           onClick={onAgoraNao}
         >
           <span>Agora não</span>
+
           <small>
             Conhecer o Organiza primeiro.
           </small>
@@ -744,12 +772,14 @@ export default function InicioPage({
 
         .inicio-empresas-erro strong {
           font-size: 14px;
+          line-height: 1.4;
         }
 
         .inicio-empresas-erro span {
           color: #888;
           font-size: 12px;
-          line-height: 1.45;
+          line-height: 1.5;
+          word-break: break-word;
         }
 
         .inicio-sem-empresas {
