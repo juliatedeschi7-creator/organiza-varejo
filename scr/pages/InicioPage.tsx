@@ -33,16 +33,37 @@ export default function InicioPage({
   const [nome, setNome] = useState('')
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [carregandoEmpresas, setCarregandoEmpresas] = useState(true)
+  const [erroEmpresas, setErroEmpresas] = useState('')
 
   useEffect(() => {
     async function carregarInicio() {
       setCarregandoEmpresas(true)
+      setErroEmpresas('')
 
-      const { data: usuarioData } = await supabase.auth.getUser()
+      const { data: usuarioData, error: usuarioError } =
+        await supabase.auth.getUser()
+
+      if (usuarioError) {
+        console.error(
+          'Erro ao obter usuário autenticado:',
+          usuarioError,
+        )
+
+        setErroEmpresas(
+          'Não foi possível identificar sua conta.',
+        )
+        setCarregandoEmpresas(false)
+        return
+      }
 
       const usuario = usuarioData.user
 
       if (!usuario) {
+        console.error('Nenhum usuário autenticado encontrado.')
+
+        setErroEmpresas(
+          'Não foi possível identificar sua conta.',
+        )
         setCarregandoEmpresas(false)
         return
       }
@@ -56,10 +77,19 @@ export default function InicioPage({
         setNome(nomeUsuario.split(' ')[0])
       }
 
-      const { data: membrosData, error: membrosError } = await supabase
-        .from('membros_empresa')
-        .select('empresa_id, status, ativo')
-        .eq('usuario_id', usuario.id)
+      console.log('USUÁRIO LOGADO:', usuario.id)
+
+      const { data: membrosData, error: membrosError } =
+        await supabase
+          .from('membros_empresa')
+          .select('empresa_id, status, ativo')
+          .eq('usuario_id', usuario.id)
+
+      console.log('MEMBROS ENCONTRADOS:', membrosData)
+      console.log(
+        'ERRO AO BUSCAR MEMBROS:',
+        membrosError,
+      )
 
       if (membrosError) {
         console.error(
@@ -67,6 +97,9 @@ export default function InicioPage({
           membrosError,
         )
 
+        setErroEmpresas(
+          'Não foi possível carregar suas empresas.',
+        )
         setEmpresas([])
         setCarregandoEmpresas(false)
         return
@@ -81,6 +114,8 @@ export default function InicioPage({
             membro.ativo !== false,
         )
         .map((membro) => membro.empresa_id)
+
+      console.log('EMPRESAS ENCONTRADAS NOS VÍNCULOS:', empresaIds)
 
       if (empresaIds.length === 0) {
         setEmpresas([])
@@ -102,7 +137,15 @@ export default function InicioPage({
             `,
           )
           .in('id', empresaIds)
-          .order('nome_fantasia', { ascending: true })
+          .order('nome_fantasia', {
+            ascending: true,
+          })
+
+      console.log('EMPRESAS CARREGADAS:', empresasData)
+      console.log(
+        'ERRO AO BUSCAR EMPRESAS:',
+        empresasError,
+      )
 
       if (empresasError) {
         console.error(
@@ -110,6 +153,9 @@ export default function InicioPage({
           empresasError,
         )
 
+        setErroEmpresas(
+          'Não foi possível carregar os dados das suas empresas.',
+        )
         setEmpresas([])
         setCarregandoEmpresas(false)
         return
@@ -139,7 +185,10 @@ export default function InicioPage({
           <h1>
             Olá
             {nome ? `, ${nome}` : ''}!
-            <span className="inicio-wave" aria-hidden="true">
+            <span
+              className="inicio-wave"
+              aria-hidden="true"
+            >
               👋
             </span>
           </h1>
@@ -153,7 +202,7 @@ export default function InicioPage({
           </p>
         </section>
 
-        {carregandoEmpresas ? (
+        {carregandoEmpresas && (
           <section className="inicio-minhas-empresas">
             <div className="inicio-minhas-empresas-header">
               <div>
@@ -167,80 +216,134 @@ export default function InicioPage({
 
             <div className="inicio-empresas-loading">
               <span className="inicio-loading-spinner" />
-              <span>Carregando suas empresas...</span>
-            </div>
-          </section>
-        ) : empresas.length > 0 ? (
-          <section className="inicio-minhas-empresas">
-            <div className="inicio-minhas-empresas-header">
-              <div>
-                <span className="inicio-section-label">
-                  SEUS NEGÓCIOS
-                </span>
 
-                <h3>Minhas empresas</h3>
-              </div>
-
-              <span className="inicio-empresas-count">
-                {empresas.length}
+              <span>
+                Carregando suas empresas...
               </span>
             </div>
-
-            <div className="inicio-empresas-lista">
-              {empresas.map((empresa) => (
-                <button
-                  key={empresa.id}
-                  type="button"
-                  className="inicio-empresa-card"
-                  onClick={() => onAbrirEmpresa(empresa.id)}
-                >
-                  <span className="inicio-empresa-logo">
-                    {empresa.logo_url ? (
-                      <img
-                        src={empresa.logo_url}
-                        alt=""
-                      />
-                    ) : (
-                      <span>
-                        {empresa.nome_fantasia
-                          .trim()
-                          .charAt(0)
-                          .toUpperCase()}
-                      </span>
-                    )}
-                  </span>
-
-                  <span className="inicio-empresa-info">
-                    <strong>{empresa.nome_fantasia}</strong>
-
-                    {(empresa.cidade || empresa.estado) && (
-                      <small>
-                        {empresa.cidade}
-                        {empresa.cidade && empresa.estado
-                          ? ' • '
-                          : ''}
-                        {empresa.estado}
-                      </small>
-                    )}
-
-                    <small className="inicio-empresa-status">
-                      {empresa.status === 'ativa'
-                        ? 'Empresa ativa'
-                        : 'Empresa temporariamente indisponível'}
-                    </small>
-                  </span>
-
-                  <span
-                    className="inicio-empresa-arrow"
-                    aria-hidden="true"
-                  >
-                    →
-                  </span>
-                </button>
-              ))}
-            </div>
           </section>
-        ) : null}
+        )}
+
+        {!carregandoEmpresas &&
+          erroEmpresas && (
+            <section className="inicio-minhas-empresas">
+              <div className="inicio-minhas-empresas-header">
+                <div>
+                  <span className="inicio-section-label">
+                    SEUS NEGÓCIOS
+                  </span>
+
+                  <h3>Minhas empresas</h3>
+                </div>
+              </div>
+
+              <div className="inicio-empresas-erro">
+                <strong>
+                  Não conseguimos carregar suas empresas.
+                </strong>
+
+                <span>{erroEmpresas}</span>
+              </div>
+            </section>
+          )}
+
+        {!carregandoEmpresas &&
+          !erroEmpresas &&
+          empresas.length > 0 && (
+            <section className="inicio-minhas-empresas">
+              <div className="inicio-minhas-empresas-header">
+                <div>
+                  <span className="inicio-section-label">
+                    SEUS NEGÓCIOS
+                  </span>
+
+                  <h3>Minhas empresas</h3>
+                </div>
+
+                <span className="inicio-empresas-count">
+                  {empresas.length}
+                </span>
+              </div>
+
+              <div className="inicio-empresas-lista">
+                {empresas.map((empresa) => (
+                  <button
+                    key={empresa.id}
+                    type="button"
+                    className="inicio-empresa-card"
+                    onClick={() =>
+                      onAbrirEmpresa(empresa.id)
+                    }
+                  >
+                    <span className="inicio-empresa-logo">
+                      {empresa.logo_url ? (
+                        <img
+                          src={empresa.logo_url}
+                          alt=""
+                        />
+                      ) : (
+                        <span>
+                          {empresa.nome_fantasia
+                            .trim()
+                            .charAt(0)
+                            .toUpperCase()}
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="inicio-empresa-info">
+                      <strong>
+                        {empresa.nome_fantasia}
+                      </strong>
+
+                      {(empresa.cidade ||
+                        empresa.estado) && (
+                        <small>
+                          {empresa.cidade}
+
+                          {empresa.cidade &&
+                          empresa.estado
+                            ? ' • '
+                            : ''}
+
+                          {empresa.estado}
+                        </small>
+                      )}
+
+                      <small className="inicio-empresa-status">
+                        {empresa.status === 'ativa'
+                          ? 'Empresa ativa'
+                          : 'Empresa temporariamente indisponível'}
+                      </small>
+                    </span>
+
+                    <span
+                      className="inicio-empresa-arrow"
+                      aria-hidden="true"
+                    >
+                      →
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+        {!carregandoEmpresas &&
+          !erroEmpresas &&
+          empresas.length === 0 && (
+            <section className="inicio-sem-empresas">
+              <span className="inicio-section-label">
+                SEUS NEGÓCIOS
+              </span>
+
+              <h3>Minhas empresas</h3>
+
+              <p>
+                Você ainda não cadastrou nenhum negócio.
+              </p>
+            </section>
+          )}
 
         <section className="inicio-options">
           <button
@@ -248,7 +351,10 @@ export default function InicioPage({
             className="inicio-option inicio-option--comprar"
             onClick={onExplorar}
           >
-            <span className="inicio-option__icon" aria-hidden="true">
+            <span
+              className="inicio-option__icon"
+              aria-hidden="true"
+            >
               <svg
                 viewBox="0 0 48 48"
                 fill="none"
@@ -271,15 +377,20 @@ export default function InicioPage({
             </span>
 
             <span className="inicio-option__content">
-              <strong>Explorar lojas e comprar</strong>
+              <strong>
+                Explorar lojas e comprar
+              </strong>
 
               <span>
-                Encontre negócios locais, conheça produtos e serviços
-                perto de você.
+                Encontre negócios locais, conheça
+                produtos e serviços perto de você.
               </span>
             </span>
 
-            <span className="inicio-option__arrow" aria-hidden="true">
+            <span
+              className="inicio-option__arrow"
+              aria-hidden="true"
+            >
               →
             </span>
           </button>
@@ -289,7 +400,10 @@ export default function InicioPage({
             className="inicio-option inicio-option--negocio"
             onClick={onCadastrarNegocio}
           >
-            <span className="inicio-option__icon" aria-hidden="true">
+            <span
+              className="inicio-option__icon"
+              aria-hidden="true"
+            >
               <svg
                 viewBox="0 0 48 48"
                 fill="none"
@@ -351,7 +465,10 @@ export default function InicioPage({
               </span>
             </span>
 
-            <span className="inicio-option__arrow" aria-hidden="true">
+            <span
+              className="inicio-option__arrow"
+              aria-hidden="true"
+            >
               →
             </span>
           </button>
@@ -363,7 +480,9 @@ export default function InicioPage({
           onClick={onAgoraNao}
         >
           <span>Agora não</span>
-          <small>Conhecer o Organiza primeiro.</small>
+          <small>
+            Conhecer o Organiza primeiro.
+          </small>
         </button>
       </section>
 
@@ -475,7 +594,8 @@ export default function InicioPage({
           letter-spacing: 0.14em;
         }
 
-        .inicio-minhas-empresas-header h3 {
+        .inicio-minhas-empresas-header h3,
+        .inicio-sem-empresas h3 {
           margin: 0;
           font-size: 19px;
           letter-spacing: -0.02em;
@@ -610,6 +730,40 @@ export default function InicioPage({
           to {
             transform: rotate(360deg);
           }
+        }
+
+        .inicio-empresas-erro {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 18px;
+          border: 1px solid #eadede;
+          border-radius: 17px;
+          background: #fff;
+        }
+
+        .inicio-empresas-erro strong {
+          font-size: 14px;
+        }
+
+        .inicio-empresas-erro span {
+          color: #888;
+          font-size: 12px;
+          line-height: 1.45;
+        }
+
+        .inicio-sem-empresas {
+          margin-top: 30px;
+          padding: 20px;
+          border: 1px dashed #ddd;
+          border-radius: 17px;
+          background: #fff;
+        }
+
+        .inicio-sem-empresas p {
+          margin: 7px 0 0;
+          color: #888;
+          font-size: 13px;
         }
 
         .inicio-options {
