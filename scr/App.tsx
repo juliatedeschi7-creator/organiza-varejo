@@ -3,16 +3,52 @@ import LoginPage from './pages/LoginPage'
 import CadastroPage from './pages/CadastroPage'
 import InicioPage from './pages/InicioPage'
 import CadastrarNegocioPage from './pages/CadastrarNegocioPage'
+import NegocioPage from './pages/NegocioPage'
 
-type Page = 'login' | 'cadastro' | 'inicio' | 'cadastrar-negocio'
+type Page =
+  | 'login'
+  | 'cadastro'
+  | 'inicio'
+  | 'cadastrar-negocio'
+  | 'negocio'
 
 function App() {
   const [page, setPage] = useState<Page>('login')
+  const [empresaId, setEmpresaId] = useState<string | null>(null)
 
   if (page === 'cadastro') {
     return (
       <CadastroPage
         onVoltarLogin={() => setPage('login')}
+      />
+    )
+  }
+
+  if (page === 'cadastrar-negocio') {
+    return (
+      <CadastrarNegocioPage
+        onVoltar={() => setPage('inicio')}
+        onCadastroSucesso={(id) => {
+          setEmpresaId(id)
+          setPage('negocio')
+        }}
+      />
+    )
+  }
+
+  if (page === 'negocio') {
+    if (!empresaId) {
+      setPage('inicio')
+      return null
+    }
+
+    return (
+      <NegocioPage
+        empresaId={empresaId}
+        onSair={() => {
+          setEmpresaId(null)
+          setPage('login')
+        }}
       />
     )
   }
@@ -28,18 +64,6 @@ function App() {
         }}
         onAgoraNao={() => {
           setPage('login')
-        }}
-      />
-    )
-  }
-
-  if (page === 'cadastrar-negocio') {
-    return (
-      <CadastrarNegocioPage
-        onVoltar={() => setPage('inicio')}
-        onCadastroSucesso={(empresaId) => {
-          console.log('Negócio criado:', empresaId)
-          setPage('inicio')
         }}
       />
     )
