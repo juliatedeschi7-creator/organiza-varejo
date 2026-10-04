@@ -5,6 +5,7 @@ import { Logo } from '../components/Logo'
 interface NegocioPageProps {
   empresaId: string
   onSair: () => void
+  onAbrirVitrine: () => void
 }
 
 interface Empresa {
@@ -37,39 +38,27 @@ interface Filial {
   bairro: string | null
   cidade: string | null
   estado: string | null
-  latitude: number | null
-  longitude: number | null
   ativa: boolean
 }
 
 export default function NegocioPage({
   empresaId,
   onSair,
+  onAbrirVitrine,
 }: NegocioPageProps) {
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [filial, setFilial] = useState<Filial | null>(null)
-
   const [carregando, setCarregando] = useState(true)
-  const [erro, setErro] = useState('')
-
   const [menuAberto, setMenuAberto] = useState(false)
 
   useEffect(() => {
-    carregarNegocio()
-  }, [empresaId])
+    async function carregarNegocio() {
+      setCarregando(true)
 
-  async function carregarNegocio() {
-    setCarregando(true)
-    setErro('')
-
-    const [
-      empresaResponse,
-      filialResponse,
-    ] = await Promise.all([
-      supabase
-        .from('empresas')
-        .select(
-          `
+      try {
+        const { data: empresaData, error: empresaError } = await supabase
+          .from('empresas')
+          .select(`
             id,
             nome_fantasia,
             razao_social,
@@ -83,15 +72,21 @@ export default function NegocioPage({
             cidade,
             estado,
             status
-          `,
-        )
-        .eq('id', empresaId)
-        .single(),
+          `)
+          .eq('id', empresaId)
+          .single()
 
-      supabase
-        .from('filiais')
-        .select(
-          `
+        if (empresaError) {
+          console.error('Erro ao carregar empresa:', empresaError)
+          setEmpresa(null)
+          return
+        }
+
+        setEmpresa(empresaData as Empresa)
+
+        const { data: filialData, error: filialError } = await supabase
+          .from('filiais')
+          .select(`
             id,
             empresa_id,
             nome,
@@ -105,1363 +100,529 @@ export default function NegocioPage({
             bairro,
             cidade,
             estado,
-            latitude,
-            longitude,
             ativa
-          `,
-        )
-        .eq('empresa_id', empresaId)
-        .eq('ativa', true)
-        .order('created_at', {
-          ascending: true,
-        })
-        .limit(1)
-        .maybeSingle(),
-    ])
+          `)
+          .eq('empresa_id', empresaId)
+          .eq('ativa', true)
+          .order('created_at', { ascending: true })
+          .limit(1)
+          .maybeSingle()
 
-    if (empresaResponse.error) {
-      console.error(
-        'Erro ao carregar empresa:',
-        empresaResponse.error,
-      )
+        if (filialError) {
+          console.error('Erro ao carregar unidade:', filialError)
+          setFilial(null)
+          return
+        }
 
-      setErro(
-        'Não foi possível carregar os dados do seu negócio.',
-      )
-
-      setCarregando(false)
-      return
+        setFilial(filialData as Filial | null)
+      } finally {
+        setCarregando(false)
+      }
     }
 
-    if (filialResponse.error) {
-      console.error(
-        'Erro ao carregar unidade:',
-        filialResponse.error,
-      )
+    carregarNegocio()
+  }, [empresaId])
 
-      setErro(
-        'O negócio foi encontrado, mas não foi possível carregar sua unidade.',
-      )
+  function formatarWhatsApp(numero: string | null) {
+    if (!numero) return ''
 
-      setCarregando(false)
-      return
+    const apenasNumeros = numero.replace(/\D/g, '')
+
+    if (apenasNumeros.length === 13) {
+      return `(${apenasNumeros.slice(2, 4)}) ${apenasNumeros.slice(
+        4,
+        9
+      )}-${apenasNumeros.slice(9)}`
     }
 
-    setEmpresa(empresaResponse.data)
-    setFilial(filialResponse.data)
+    if (apenasNumeros.length === 11) {
+      return `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(
+        2,
+        7
+      )}-${apenasNumeros.slice(7)}`
+    }
 
-    setCarregando(false)
+    return numero
   }
 
-  function formatarEndereco() {
-    if (!filial) {
-      return ''
-    }
+  function enderecoCompleto() {
+    if (!filial) return ''
 
     const partes = [
       filial.logradouro,
       filial.numero,
+      filial.complemento,
       filial.bairro,
+      filial.cidade,
+      filial.estado,
     ].filter(Boolean)
 
     return partes.join(', ')
   }
 
-  function localidade() {
-    const cidade = filial?.cidade || empresa?.cidade
-    const estado = filial?.estado || empresa?.estado
+  function statusTexto() {
+    if (!empresa) return ''
 
-    if (cidade && estado) {
-      return `${cidade} • ${estado}`
+    if (empresa.status === 'ativa') {
+      return 'Negócio ativo'
     }
 
-    if (cidade) {
-      return cidade
+    if (empresa.status === 'arquivada') {
+      return 'Negócio arquivado'
     }
 
-    if (estado) {
-      return estado
-    }
-
-    return 'Localização não informada'
-  }
-
-  function dadosPrincipaisCompletos() {
-    if (!empresa) {
-      return false
-    }
-
-    return Boolean(
-      empresa.nome_fantasia &&
-        empresa.whatsapp &&
-        filial?.logradouro &&
-        filial?.numero &&
-        filial?.bairro &&
-        filial?.cidade &&
-        filial?.estado,
-    )
+    return empresa.status
   }
 
   if (carregando) {
     return (
-      <main className="negocio-page">
-        <div className="negocio-loading">
-          <div className="negocio-loading-logo">
-            <Logo />
-          </div>
-
+      <div className="negocio-loading">
+        <div className="negocio-loading-card">
+          <Logo />
+          <div className="negocio-spinner" />
           <p>Carregando seu negócio...</p>
         </div>
-      </main>
+
+        <style>{`
+          .negocio-loading {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #f7f7f5;
+            color: #222;
+            font-family: Arial, sans-serif;
+          }
+
+          .negocio-loading-card {
+            width: 100%;
+            max-width: 360px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            text-align: center;
+          }
+
+          .negocio-loading-card p {
+            margin: 0;
+            color: #777;
+            font-size: 15px;
+          }
+
+          .negocio-spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid #e8e8e8;
+            border-top-color: #222;
+            border-radius: 50%;
+            animation: negocioSpin 0.8s linear infinite;
+          }
+
+          @keyframes negocioSpin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
+      </div>
     )
   }
 
-  if (erro || !empresa) {
+  if (!empresa) {
     return (
-      <main className="negocio-page">
-        <section className="negocio-error">
-          <div className="negocio-error-logo">
-            <Logo />
-          </div>
+      <div className="negocio-error">
+        <div className="negocio-error-card">
+          <Logo />
 
-          <h1>Não foi possível abrir seu negócio</h1>
+          <h1>Não encontramos seu negócio</h1>
 
           <p>
-            {erro ||
-              'Os dados do negócio não foram encontrados.'}
+            Não foi possível carregar os dados deste negócio.
           </p>
 
           <button
             type="button"
-            className="negocio-primary-button"
-            onClick={carregarNegocio}
-          >
-            Tentar novamente
-          </button>
-
-          <button
-            type="button"
-            className="negocio-text-button"
             onClick={onSair}
+            className="negocio-primary-button"
           >
             Voltar
           </button>
-        </section>
-      </main>
+        </div>
+
+        <style>{`
+          .negocio-error {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #f7f7f5;
+            font-family: Arial, sans-serif;
+          }
+
+          .negocio-error-card {
+            width: 100%;
+            max-width: 420px;
+            background: #fff;
+            border-radius: 24px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+          }
+
+          .negocio-error-card h1 {
+            margin: 28px 0 10px;
+            font-size: 24px;
+            color: #222;
+          }
+
+          .negocio-error-card p {
+            margin: 0 0 24px;
+            color: #777;
+            line-height: 1.5;
+          }
+
+          .negocio-primary-button {
+            width: 100%;
+            border: 0;
+            border-radius: 14px;
+            padding: 14px 18px;
+            background: #222;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+          }
+        `}</style>
+      </div>
     )
   }
 
   return (
-    <main className="negocio-page">
-      <style>{`
-        .negocio-page {
-          min-height: 100vh;
-          background: #f7f6f3;
-          color: #171717;
-          padding-bottom: 90px;
-          box-sizing: border-box;
-          overflow-x: hidden;
-        }
-
-        .negocio-shell {
-          width: 100%;
-          max-width: 760px;
-          margin: 0 auto;
-        }
-
-        /* ==========================
-           TOPO
-           ========================== */
-
-        .negocio-topbar {
-          position: sticky;
-          top: 0;
-          z-index: 20;
-          background: rgba(247, 246, 243, 0.94);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          padding: 16px 18px 12px;
-          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-        }
-
-        .negocio-topbar-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .negocio-topbar-brand {
-          width: 38px;
-          height: 38px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          flex-shrink: 0;
-        }
-
-        .negocio-topbar-brand > * {
-          max-width: 100%;
-          max-height: 100%;
-        }
-
-        .negocio-topbar-info {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .negocio-name-row {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          min-width: 0;
-        }
-
-        .negocio-name-row h1 {
-          margin: 0;
-          font-size: 18px;
-          line-height: 1.2;
-          font-weight: 800;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .negocio-name-row button {
-          border: 0;
-          background: transparent;
-          padding: 2px;
-          font-size: 16px;
-          cursor: pointer;
-        }
-
-        .negocio-unidade {
-          margin: 4px 0 0;
-          color: #777;
-          font-size: 13px;
-          line-height: 1.2;
-        }
-
-        .negocio-top-actions {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-
-        .negocio-icon-button {
-          width: 38px;
-          height: 38px;
-          border: 1px solid rgba(0, 0, 0, 0.07);
-          border-radius: 50%;
-          background: #fff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 17px;
-          cursor: pointer;
-        }
-
-        /* ==========================
-           CAPA / IDENTIDADE
-           ========================== */
-
-        .negocio-cover {
-          position: relative;
-          min-height: 235px;
-          margin: 0;
-          overflow: hidden;
-          background:
-            radial-gradient(
-              circle at 20% 30%,
-              rgba(255, 255, 255, 0.95),
-              transparent 34%
-            ),
-            linear-gradient(
-              135deg,
-              #eee7dc,
-              #f8f5ef
-            );
-        }
-
-        .negocio-cover-image {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          opacity: 0.65;
-        }
-
-        .negocio-cover-overlay {
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(
-            to bottom,
-            rgba(255, 255, 255, 0.1),
-            rgba(255, 255, 255, 0.78)
-          );
-        }
-
-        .negocio-cover-content {
-          position: relative;
-          z-index: 2;
-          min-height: 235px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 32px 20px;
-          box-sizing: border-box;
-        }
-
-        .negocio-logo {
-          width: 82px;
-          height: 82px;
-          border-radius: 50%;
-          background: #fff;
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          margin-bottom: 15px;
-        }
-
-        .negocio-logo img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-        }
-
-        .negocio-logo-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 34px;
-          font-weight: 800;
-          color: #777;
-          background: #fafafa;
-        }
-
-        .negocio-cover-content h2 {
-          margin: 0;
-          font-size: 25px;
-          line-height: 1.15;
-          font-weight: 850;
-          letter-spacing: -0.4px;
-        }
-
-        .negocio-cover-location {
-          margin: 7px 0 12px;
-          color: #555;
-          font-size: 14px;
-          font-weight: 600;
-        }
-
-        .negocio-status {
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          padding: 6px 10px;
-          border-radius: 999px;
-          background: #e4f5e8;
-          color: #28733c;
-          font-size: 12px;
-          font-weight: 700;
-        }
-
-        .negocio-status-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #38a85a;
-        }
-
-        /* ==========================
-           CONTEÚDO
-           ========================== */
-
-        .negocio-content {
-          padding: 18px 16px 30px;
-        }
-
-        .negocio-card {
-          background: #fff;
-          border: 1px solid rgba(0, 0, 0, 0.06);
-          border-radius: 18px;
-          box-shadow: 0 5px 18px rgba(0, 0, 0, 0.045);
-        }
-
-        .negocio-welcome {
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          padding: 18px;
-          margin-bottom: 25px;
-        }
-
-        .negocio-welcome-icon {
-          width: 44px;
-          height: 44px;
-          flex-shrink: 0;
-          border-radius: 14px;
-          background: #eef8f1;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 22px;
-        }
-
-        .negocio-welcome-text {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .negocio-welcome-text h3 {
-          margin: 0 0 4px;
-          font-size: 16px;
-          line-height: 1.2;
-          font-weight: 800;
-        }
-
-        .negocio-welcome-text p {
-          margin: 0;
-          color: #555;
-          font-size: 14px;
-          line-height: 1.45;
-        }
-
-        .negocio-arrow {
-          flex-shrink: 0;
-          font-size: 20px;
-          color: #777;
-        }
-
-        /* ==========================
-           CHECKLIST
-           ========================== */
-
-        .negocio-section-title {
-          margin: 0 0 12px;
-        }
-
-        .negocio-section-title h2 {
-          margin: 0;
-          font-size: 21px;
-          line-height: 1.2;
-          font-weight: 850;
-          letter-spacing: -0.25px;
-        }
-
-        .negocio-section-title p {
-          margin: 5px 0 0;
-          color: #777;
-          font-size: 14px;
-          line-height: 1.35;
-        }
-
-        .negocio-checklist {
-          overflow: hidden;
-          margin-bottom: 28px;
-        }
-
-        .negocio-check-item {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          min-height: 64px;
-          padding: 12px 14px;
-          box-sizing: border-box;
-          border-bottom: 1px solid #eee;
-          cursor: pointer;
-        }
-
-        .negocio-check-item:last-child {
-          border-bottom: 0;
-        }
-
-        .negocio-check-icon {
-          width: 25px;
-          height: 25px;
-          border-radius: 50%;
-          flex-shrink: 0;
-          border: 2px solid #c7c7c7;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-sizing: border-box;
-          font-size: 13px;
-          font-weight: 800;
-        }
-
-        .negocio-check-icon.completed {
-          background: #3ca75c;
-          border-color: #3ca75c;
-          color: #fff;
-        }
-
-        .negocio-check-text {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .negocio-check-text strong {
-          display: block;
-          font-size: 14px;
-          line-height: 1.25;
-          font-weight: 750;
-        }
-
-        .negocio-check-text span {
-          display: block;
-          margin-top: 3px;
-          color: #777;
-          font-size: 12px;
-          line-height: 1.3;
-        }
-
-        .negocio-check-arrow {
-          color: #999;
-          font-size: 19px;
-        }
-
-        .negocio-tip {
-          margin-top: 12px;
-          padding: 14px;
-          border-radius: 15px;
-          background: #edf8ed;
-          color: #3d6341;
-          font-size: 13px;
-          line-height: 1.4;
-        }
-
-        /* ==========================
-           AÇÕES
-           ========================== */
-
-        .negocio-actions {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-          margin-top: 14px;
-          margin-bottom: 28px;
-        }
-
-        .negocio-action {
-          min-height: 130px;
-          padding: 16px;
-          border: 1px solid rgba(0, 0, 0, 0.06);
-          border-radius: 17px;
-          background: #fff;
-          text-align: left;
-          box-shadow: 0 5px 18px rgba(0, 0, 0, 0.04);
-          cursor: pointer;
-        }
-
-        .negocio-action:active {
-          transform: scale(0.985);
-        }
-
-        .negocio-action-icon {
-          width: 39px;
-          height: 39px;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 12px;
-          background: #f0eefb;
-          font-size: 20px;
-        }
-
-        .negocio-action:nth-child(2) .negocio-action-icon {
-          background: #edf8f5;
-        }
-
-        .negocio-action:nth-child(3) .negocio-action-icon {
-          background: #fff4e8;
-        }
-
-        .negocio-action:nth-child(4) .negocio-action-icon {
-          background: #f3effb;
-        }
-
-        .negocio-action strong {
-          display: block;
-          font-size: 15px;
-          line-height: 1.2;
-          font-weight: 800;
-        }
-
-        .negocio-action span {
-          display: block;
-          margin-top: 5px;
-          color: #777;
-          font-size: 12px;
-          line-height: 1.35;
-        }
-
-        .negocio-vitrine-action {
-          grid-column: 1 / -1;
-          min-height: 92px;
-        }
-
-        .negocio-vitrine-action-content {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-        }
-
-        .negocio-vitrine-action .negocio-action-icon {
-          margin-bottom: 0;
-          flex-shrink: 0;
-        }
-
-        /* ==========================
-           UNIDADE
-           ========================== */
-
-        .negocio-unit-card {
-          padding: 16px;
-          margin-top: 12px;
-          margin-bottom: 28px;
-        }
-
-        .negocio-unit-header {
-          display: flex;
-          align-items: center;
-          gap: 13px;
-        }
-
-        .negocio-unit-icon {
-          width: 48px;
-          height: 48px;
-          flex-shrink: 0;
-          border-radius: 14px;
-          background: #edf8f5;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 23px;
-        }
-
-        .negocio-unit-info {
-          min-width: 0;
-          flex: 1;
-        }
-
-        .negocio-unit-info strong {
-          display: block;
-          font-size: 15px;
-          line-height: 1.25;
-        }
-
-        .negocio-unit-info span {
-          display: block;
-          margin-top: 4px;
-          color: #777;
-          font-size: 12px;
-        }
-
-        .negocio-unit-button {
-          margin-top: 14px;
-          width: 100%;
-          padding: 11px 13px;
-          border: 1px solid #ddd;
-          border-radius: 11px;
-          background: #fff;
-          text-align: left;
-          font-size: 13px;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        .negocio-address {
-          margin-top: 12px;
-          min-height: 130px;
-          padding: 16px;
-          border-radius: 16px;
-          background:
-            linear-gradient(
-              135deg,
-              #f1eee7,
-              #faf9f6
-            );
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          color: #555;
-        }
-
-        .negocio-address-pin {
-          font-size: 28px;
-          margin-bottom: 5px;
-        }
-
-        .negocio-address strong {
-          display: block;
-          color: #222;
-          font-size: 13px;
-        }
-
-        .negocio-address span {
-          display: block;
-          margin-top: 3px;
-          font-size: 12px;
-        }
-
-        /* ==========================
-           RODAPÉ / NAVEGAÇÃO
-           ========================== */
-
-        .negocio-bottom-nav {
-          position: fixed;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 30;
-          display: grid;
-          grid-template-columns: repeat(5, 1fr);
-          padding: 8px max(10px, env(safe-area-inset-left))
-            calc(8px + env(safe-area-inset-bottom))
-            max(10px, env(safe-area-inset-right));
-          background: rgba(255, 255, 255, 0.96);
-          border-top: 1px solid rgba(0, 0, 0, 0.08);
-          box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.04);
-          backdrop-filter: blur(15px);
-          -webkit-backdrop-filter: blur(15px);
-        }
-
-        .negocio-nav-button {
-          border: 0;
-          background: transparent;
-          min-height: 53px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 3px;
-          color: #777;
-          font-size: 10px;
-          font-weight: 600;
-          cursor: pointer;
-        }
-
-        .negocio-nav-button strong {
-          font-size: 19px;
-          line-height: 1;
-        }
-
-        .negocio-nav-button.active {
-          color: #171717;
-        }
-
-        /* ==========================
-           MENU
-           ========================== */
-
-        .negocio-menu-overlay {
-          position: fixed;
-          inset: 0;
-          z-index: 50;
-          background: rgba(0, 0, 0, 0.28);
-          display: flex;
-          align-items: flex-end;
-        }
-
-        .negocio-menu {
-          width: 100%;
-          max-height: 80vh;
-          overflow-y: auto;
-          box-sizing: border-box;
-          padding: 18px 18px calc(20px + env(safe-area-inset-bottom));
-          border-radius: 24px 24px 0 0;
-          background: #fff;
-          box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15);
-        }
-
-        .negocio-menu-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        }
-
-        .negocio-menu-header strong {
-          font-size: 17px;
-        }
-
-        .negocio-menu-close {
-          width: 34px;
-          height: 34px;
-          border: 0;
-          border-radius: 50%;
-          background: #f2f2f2;
-          cursor: pointer;
-          font-size: 18px;
-        }
-
-        .negocio-menu-item {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 4px;
-          border: 0;
-          border-bottom: 1px solid #eee;
-          background: transparent;
-          text-align: left;
-          font-size: 14px;
-          font-weight: 650;
-          color: #222;
-        }
-
-        .negocio-menu-item span:first-child {
-          width: 25px;
-          text-align: center;
-        }
-
-        /* ==========================
-           LOADING / ERRO
-           ========================== */
-
-        .negocio-loading,
-        .negocio-error {
-          min-height: 100vh;
-          padding: 40px 25px;
-          box-sizing: border-box;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-        }
-
-        .negocio-loading-logo,
-        .negocio-error-logo {
-          width: 80px;
-          margin-bottom: 20px;
-        }
-
-        .negocio-loading p {
-          color: #777;
-          font-size: 15px;
-        }
-
-        .negocio-error h1 {
-          max-width: 350px;
-          margin: 0;
-          font-size: 25px;
-          line-height: 1.15;
-        }
-
-        .negocio-error p {
-          max-width: 350px;
-          color: #666;
-          line-height: 1.45;
-        }
-
-        .negocio-primary-button {
-          border: 0;
-          border-radius: 13px;
-          padding: 14px 20px;
-          background: #171717;
-          color: #fff;
-          font-size: 15px;
-          font-weight: 750;
-          cursor: pointer;
-        }
-
-        .negocio-text-button {
-          margin-top: 14px;
-          border: 0;
-          background: transparent;
-          color: #555;
-          font-size: 14px;
-          font-weight: 650;
-          cursor: pointer;
-        }
-
-        @media (min-width: 700px) {
-          .negocio-page {
-            padding-bottom: 30px;
-          }
-
-          .negocio-bottom-nav {
-            left: 50%;
-            right: auto;
-            bottom: 18px;
-            width: min(620px, calc(100% - 30px));
-            transform: translateX(-50%);
-            border: 1px solid rgba(0, 0, 0, 0.08);
-            border-radius: 18px;
-            padding-bottom: 8px;
-          }
-        }
-      `}</style>
-
-      <div className="negocio-shell">
-        <header className="negocio-topbar">
-          <div className="negocio-topbar-row">
-            <div className="negocio-topbar-brand">
-              <Logo />
-            </div>
-
-            <div className="negocio-topbar-info">
-              <div className="negocio-name-row">
-                <h1>{empresa.nome_fantasia}</h1>
-
-                <button
-                  type="button"
-                  aria-label="Selecionar unidade"
-                  onClick={() => {
-                    // A seleção de múltiplas unidades será adicionada
-                    // quando essa funcionalidade estiver disponível.
-                  }}
-                >
-                 ⌄
-                </button>
-              </div>
-
-              <p className="negocio-unidade">
-                {filial?.nome || 'Unidade principal'}
-              </p>
-            </div>
-
-            <div className="negocio-top-actions">
-              <button
-                type="button"
-                className="negocio-icon-button"
-                aria-label="Notificações"
-                onClick={() => {
-                  // Área de notificações será conectada posteriormente.
-                }}
-              >
-                ♧
-              </button>
-
-              <button
-                type="button"
-                className="negocio-icon-button"
-                aria-label="Abrir menu"
-                onClick={() => setMenuAberto(true)}
-              >
-                ☰
-              </button>
-            </div>
-          </div>
-        </header>
-
-        <section className="negocio-cover">
-          {empresa.banner_url && (
-            <img
-              src={empresa.banner_url}
-              alt=""
-              className="negocio-cover-image"
-            />
-          )}
-
-          <div className="negocio-cover-overlay" />
-
-          <div className="negocio-cover-content">
-            <div className="negocio-logo">
+    <div className="negocio-page">
+      <header className="negocio-topbar">
+        <div className="negocio-topbar-inner">
+          <div className="negocio-brand">
+            <div className="negocio-brand-logo">
               {empresa.logo_url ? (
                 <img
                   src={empresa.logo_url}
                   alt={`Logo de ${empresa.nome_fantasia}`}
                 />
               ) : (
-                <div className="negocio-logo-placeholder">
-                  {empresa.nome_fantasia
-                    .trim()
-                    .charAt(0)
-                    .toUpperCase()}
-                </div>
+                <Logo />
               )}
             </div>
 
-            <h2>{empresa.nome_fantasia}</h2>
+            <div className="negocio-brand-info">
+              <strong>{empresa.nome_fantasia}</strong>
 
-            <p className="negocio-cover-location">
-              {localidade()}
-            </p>
+              <span>
+                {filial?.nome || 'Unidade principal'}
+              </span>
+            </div>
+          </div>
 
-            <span className="negocio-status">
+          <button
+            type="button"
+            className="negocio-menu-button"
+            onClick={() => setMenuAberto(true)}
+            aria-label="Abrir menu"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        </div>
+      </header>
+
+      <main className="negocio-main">
+        <section className="negocio-hero">
+          <div
+            className="negocio-hero-background"
+            style={
+              empresa.banner_url
+                ? {
+                    backgroundImage: `url(${empresa.banner_url})`,
+                  }
+                : undefined
+            }
+          >
+            {!empresa.banner_url && (
+              <div className="negocio-hero-placeholder" />
+            )}
+          </div>
+
+          <div className="negocio-hero-content">
+            <div className="negocio-logo-large">
+              {empresa.logo_url ? (
+                <img
+                  src={empresa.logo_url}
+                  alt={`Logo de ${empresa.nome_fantasia}`}
+                />
+              ) : (
+                <Logo />
+              )}
+            </div>
+
+            <div className="negocio-hero-text">
+              <h1>{empresa.nome_fantasia}</h1>
+
+              <p>
+                {filial?.cidade || empresa.cidade || 'Seu negócio no digital'}
+                {filial?.estado || empresa.estado
+                  ? `, ${filial?.estado || empresa.estado}`
+                  : ''}
+              </p>
+            </div>
+
+            <div className="negocio-status">
               <span className="negocio-status-dot" />
-              {empresa.status === 'ativa'
-                ? 'Negócio ativo'
-                : empresa.status}
-            </span>
+              {statusTexto()}
+            </div>
           </div>
         </section>
 
-        <div className="negocio-content">
-          <section className="negocio-card negocio-welcome">
-            <div className="negocio-welcome-icon">
-              ✦
+        <section className="negocio-welcome">
+          <div>
+            <span className="negocio-eyebrow">Seu negócio</span>
+
+            <h2>
+              Vamos deixar sua presença digital pronta para seus clientes.
+            </h2>
+
+            <p>
+              Aqui você organiza as informações do negócio e prepara sua
+              vitrine para aparecer no Organiza.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="negocio-outline-button"
+            onClick={onAbrirVitrine}
+          >
+            Visualizar vitrine
+          </button>
+        </section>
+
+        <section className="negocio-section">
+          <div className="negocio-section-heading">
+            <div>
+              <span className="negocio-eyebrow">Primeiros passos</span>
+              <h2>Deixe seu negócio completo</h2>
             </div>
 
-            <div className="negocio-welcome-text">
-              <h3>Bem-vinda!</h3>
+            <span className="negocio-progress">0/5</span>
+          </div>
 
-              <p>
-                Seu negócio está no Organiza.
-                Agora vamos deixar tudo pronto
-                para você começar a usar.
-              </p>
+          <div className="negocio-checklist">
+            <button type="button" className="negocio-check-item">
+              <span className="negocio-check-icon">✓</span>
+
+              <span className="negocio-check-content">
+                <strong>Dados principais</strong>
+                <small>
+                  Nome, contato e informações do negócio
+                </small>
+              </span>
+
+              <span className="negocio-arrow">›</span>
+            </button>
+
+            <button type="button" className="negocio-check-item">
+              <span className="negocio-check-icon">✓</span>
+
+              <span className="negocio-check-content">
+                <strong>Endereço</strong>
+                <small>
+                  Informe onde seus clientes podem encontrar você
+                </small>
+              </span>
+
+              <span className="negocio-arrow">›</span>
+            </button>
+
+            <button type="button" className="negocio-check-item">
+              <span className="negocio-check-icon">✓</span>
+
+              <span className="negocio-check-content">
+                <strong>Adicionar logo</strong>
+                <small>
+                  Deixe sua vitrine com a identidade do seu negócio
+                </small>
+              </span>
+
+              <span className="negocio-arrow">›</span>
+            </button>
+
+            <button type="button" className="negocio-check-item">
+              <span className="negocio-check-icon">✓</span>
+
+              <span className="negocio-check-content">
+                <strong>Personalizar sua vitrine</strong>
+                <small>
+                  Escolha como seu negócio será apresentado
+                </small>
+              </span>
+
+              <span className="negocio-arrow">›</span>
+            </button>
+
+            <button type="button" className="negocio-check-item">
+              <span className="negocio-check-icon">✓</span>
+
+              <span className="negocio-check-content">
+                <strong>Cadastrar produtos ou serviços</strong>
+                <small>
+                  Comece a montar o que você oferece
+                </small>
+              </span>
+
+              <span className="negocio-arrow">›</span>
+            </button>
+          </div>
+        </section>
+
+        <section className="negocio-section">
+          <div className="negocio-section-heading">
+            <div>
+              <span className="negocio-eyebrow">Acesso rápido</span>
+              <h2>Organize seu negócio</h2>
             </div>
+          </div>
 
-            <span className="negocio-arrow">›</span>
-          </section>
+          <div className="negocio-actions-grid">
+            <button
+              type="button"
+              className="negocio-action"
+            >
+              <span className="negocio-action-icon">▦</span>
+              <strong>Produtos e serviços</strong>
+              <small>Cadastre o que você oferece</small>
+            </button>
 
-          <section>
-            <div className="negocio-section-title">
-              <h2>Vamos deixar seu negócio pronto</h2>
+            <button
+              type="button"
+              className="negocio-action"
+            >
+              <span className="negocio-action-icon">♙</span>
+              <strong>Clientes</strong>
+              <small>Organize seus clientes</small>
+            </button>
 
-              <p>
-                Siga os próximos passos quando quiser.
-              </p>
+            <button
+              type="button"
+              className="negocio-action"
+            >
+              <span className="negocio-action-icon">▤</span>
+              <strong>Estoque</strong>
+              <small>Acompanhe seus produtos</small>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-action"
+            >
+              <span className="negocio-action-icon">R$</span>
+              <strong>Vendas</strong>
+              <small>Acompanhe suas vendas</small>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-action negocio-vitrine-action"
+              onClick={onAbrirVitrine}
+            >
+              <span className="negocio-action-icon">◉</span>
+              <strong>Minha vitrine</strong>
+              <small>Veja como seus clientes verão</small>
+            </button>
+          </div>
+        </section>
+
+        <section className="negocio-section">
+          <div className="negocio-section-heading">
+            <div>
+              <span className="negocio-eyebrow">Unidade</span>
+              <h2>Seu endereço</h2>
             </div>
+          </div>
 
-            <div className="negocio-card negocio-checklist">
-              <div className="negocio-check-item">
-                <div
-                  className={`negocio-check-icon ${
-                    dadosPrincipaisCompletos()
-                      ? 'completed'
-                      : ''
-                  }`}
-                >
-                  {dadosPrincipaisCompletos() ? '✓' : ''}
-                </div>
+          <div className="negocio-unit-card">
+            <div className="negocio-unit-icon">⌂</div>
 
-                <div className="negocio-check-text">
-                  <strong>Dados principais</strong>
+            <div className="negocio-unit-content">
+              <strong>
+                {filial?.nome || 'Unidade principal'}
+              </strong>
 
-                  <span>
-                    Nome, contato e endereço
-                  </span>
-                </div>
-
-                <span className="negocio-check-arrow">
-                  ›
-                </span>
-              </div>
-
-              <div className="negocio-check-item">
-                <div
-                  className={`negocio-check-icon ${
-                    filial ? 'completed' : ''
-                  }`}
-                >
-                  {filial ? '✓' : ''}
-                </div>
-
-                <div className="negocio-check-text">
-                  <strong>Endereço</strong>
-
-                  <span>
-                    Localização da sua unidade
-                  </span>
-                </div>
-
-                <span className="negocio-check-arrow">
-                  ›
-                </span>
-              </div>
-
-              <div className="negocio-check-item">
-                <div
-                  className={`negocio-check-icon ${
-                    empresa.logo_url ? 'completed' : ''
-                  }`}
-                >
-                  {empresa.logo_url ? '✓' : ''}
-                </div>
-
-                <div className="negocio-check-text">
-                  <strong>Adicionar logo</strong>
-
-                  <span>
-                    Deixe seu negócio com a sua cara
-                  </span>
-                </div>
-
-                <span className="negocio-check-arrow">
-                  ›
-                </span>
-              </div>
-
-              <div className="negocio-check-item">
-                <div className="negocio-check-icon" />
-
-                <div className="negocio-check-text">
-                  <strong>Personalizar sua vitrine</strong>
-
-                  <span>
-                    Apresente seu negócio aos clientes
-                  </span>
-                </div>
-
-                <span className="negocio-check-arrow">
-                  ›
-                </span>
-              </div>
-
-              <div className="negocio-check-item">
-                <div className="negocio-check-icon" />
-
-                <div className="negocio-check-text">
-                  <strong>
-                    Cadastrar produtos ou serviços
-                  </strong>
-
-                  <span>
-                    Mostre o que você oferece
-                  </span>
-                </div>
-
-                <span className="negocio-check-arrow">
-                  ›
-                </span>
-              </div>
-            </div>
-
-            <div className="negocio-tip">
-              💡 Você consegue fazer isso depois.
-              O importante é dar o primeiro passo.
-            </div>
-          </section>
-
-          <section style={{ marginTop: 30 }}>
-            <div className="negocio-section-title">
-              <h2>O que você quer fazer?</h2>
-
-              <p>
-                Acesse rapidamente o que mais precisa agora.
-              </p>
-            </div>
-
-            <div className="negocio-actions">
-              <button
-                type="button"
-                className="negocio-action"
-                onClick={() => {
-                  console.log(
-                    'Abrir produtos e serviços',
-                  )
-                }}
-              >
-                <div className="negocio-action-icon">
-                  🛍️
-                </div>
-
-                <strong>
-                  Produtos e serviços
-                </strong>
-
-                <span>
-                  Cadastre o que seu negócio oferece.
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="negocio-action"
-                onClick={() => {
-                  console.log('Abrir clientes')
-                }}
-              >
-                <div className="negocio-action-icon">
-                  👥
-                </div>
-
-                <strong>Clientes</strong>
-
-                <span>
-                  Veja e organize seus clientes.
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="negocio-action"
-                onClick={() => {
-                  console.log('Abrir estoque')
-                }}
-              >
-                <div className="negocio-action-icon">
-                  📦
-                </div>
-
-                <strong>Estoque</strong>
-
-                <span>
-                  Acompanhe seus produtos e quantidades.
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="negocio-action"
-                onClick={() => {
-                  console.log('Abrir vendas')
-                }}
-              >
-                <div className="negocio-action-icon">
-                  📊
-                </div>
-
-                <strong>Vendas</strong>
-
-                <span>
-                  Registre e acompanhe suas vendas.
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="negocio-action negocio-vitrine-action"
-                onClick={() => {
-                  console.log('Abrir vitrine')
-                }}
-              >
-                <div className="negocio-vitrine-action-content">
-                  <div className="negocio-action-icon">
-                    🏪
-                  </div>
-
-                  <div>
-                    <strong>Minha vitrine</strong>
-
-                    <span>
-                      Veja como seu negócio aparece
-                      para os clientes.
-                    </span>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </section>
-
-          <section>
-            <div className="negocio-section-title">
-              <h2>Sua unidade</h2>
-
-              <p>
-                A unidade principal criada para o seu negócio.
-              </p>
-            </div>
-
-            <div className="negocio-card negocio-unit-card">
-              <div className="negocio-unit-header">
-                <div className="negocio-unit-icon">
-                  🏪
-                </div>
-
-                <div className="negocio-unit-info">
-                  <strong>
-                    {filial?.nome ||
-                      'Unidade principal'}
-                  </strong>
-
-                  <span>
-                    {localidade()}
-                  </span>
-                </div>
-              </div>
-
-              {filial && (
-                <button
-                  type="button"
-                  className="negocio-unit-button"
-                  onClick={() => {
-                    console.log(
-                      'Abrir detalhes da unidade',
-                    )
-                  }}
-                >
-                  Ver detalhes da unidade
-                  <span style={{ float: 'right' }}>
-                    ›
-                  </span>
-                </button>
+              {enderecoCompleto() ? (
+                <p>{enderecoCompleto()}</p>
+              ) : (
+                <p>Endereço ainda não informado.</p>
               )}
 
-              {filial && (
-                <div className="negocio-address">
-                  <div>
-                    <div className="negocio-address-pin">
-                      📍
-                    </div>
-
-                    <strong>
-                      {localidade()}
-                    </strong>
-
-                    <span>
-                      {formatarEndereco() ||
-                        'Endereço ainda não informado'}
-                    </span>
-                  </div>
-                </div>
+              {filial?.cep && (
+                <span>CEP: {filial.cep}</span>
               )}
             </div>
-          </section>
-        </div>
-      </div>
+          </div>
+        </section>
+
+        <section className="negocio-vitrine-cta">
+          <div>
+            <span className="negocio-eyebrow">Organiza</span>
+
+            <h2>
+              Sua porta pode estar fechada.
+              <br />
+              Sua vitrine não precisa estar.
+            </h2>
+
+            <p>
+              Mostre seu negócio para seus clientes mesmo quando você não
+              estiver atendendo.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="negocio-primary-button"
+            onClick={onAbrirVitrine}
+          >
+            Ver minha vitrine
+          </button>
+        </section>
+      </main>
 
       <nav className="negocio-bottom-nav">
         <button
           type="button"
-          className="negocio-nav-button active"
-          onClick={() =>
-            window.scrollTo({
-              top: 0,
-              behavior: 'smooth',
-            })
-          }
+          className="negocio-nav-button negocio-nav-active"
         >
-          <strong>⌂</strong>
-          <span>Início</span>
+          <span>⌂</span>
+          <small>Início</small>
         </button>
 
         <button
           type="button"
           className="negocio-nav-button"
-          onClick={() => {
-            console.log('Abrir vitrine')
-          }}
         >
-          <strong>▣</strong>
-          <span>Vitrine</span>
+          <span>▦</span>
+          <small>Produtos</small>
         </button>
 
         <button
           type="button"
           className="negocio-nav-button"
-          onClick={() => {
-            console.log('Abrir operação')
-          }}
+          onClick={onAbrirVitrine}
         >
-          <strong>◇</strong>
-          <span>Operação</span>
-        </button>
-
-        <button
-          type="button"
-          className="negocio-nav-button"
-          onClick={() => {
-            console.log('Abrir clientes')
-          }}
-        >
-          <strong>♧</strong>
-          <span>Clientes</span>
+          <span>◉</span>
+          <small>Vitrine</small>
         </button>
 
         <button
@@ -1469,8 +630,8 @@ export default function NegocioPage({
           className="negocio-nav-button"
           onClick={() => setMenuAberto(true)}
         >
-          <strong>☰</strong>
-          <span>Mais</span>
+          <span>☰</span>
+          <small>Menu</small>
         </button>
       </nav>
 
@@ -1481,17 +642,19 @@ export default function NegocioPage({
         >
           <div
             className="negocio-menu"
-            onClick={(event) =>
-              event.stopPropagation()
-            }
+            onClick={(event) => event.stopPropagation()}
           >
             <div className="negocio-menu-header">
-              <strong>Meu negócio</strong>
+              <div>
+                <span className="negocio-eyebrow">Menu</span>
+                <h2>{empresa.nome_fantasia}</h2>
+              </div>
 
               <button
                 type="button"
                 className="negocio-menu-close"
                 onClick={() => setMenuAberto(false)}
+                aria-label="Fechar menu"
               >
                 ×
               </button>
@@ -1500,86 +663,815 @@ export default function NegocioPage({
             <button
               type="button"
               className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirVitrine()
+              }}
             >
-              <span>🛍️</span>
-              <span>Produtos e serviços</span>
+              <span>◉</span>
+              <div>
+                <strong>Minha vitrine</strong>
+                <small>Visualizar como cliente</small>
+              </div>
+              <b>›</b>
             </button>
 
             <button
               type="button"
               className="negocio-menu-item"
+              onClick={() => setMenuAberto(false)}
             >
-              <span>👥</span>
-              <span>Clientes</span>
+              <span>⚙</span>
+              <div>
+                <strong>Configurações</strong>
+                <small>Configure seu negócio</small>
+              </div>
+              <b>›</b>
             </button>
 
             <button
               type="button"
               className="negocio-menu-item"
+              onClick={() => setMenuAberto(false)}
             >
-              <span>📦</span>
-              <span>Estoque</span>
+              <span>?</span>
+              <div>
+                <strong>Ajuda</strong>
+                <small>Encontre respostas e orientações</small>
+              </div>
+              <b>›</b>
             </button>
+
+            <div className="negocio-menu-divider" />
 
             <button
               type="button"
-              className="negocio-menu-item"
-            >
-              <span>📊</span>
-              <span>Vendas</span>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-menu-item"
-            >
-              <span>🧾</span>
-              <span>Pedidos</span>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-menu-item"
-            >
-              <span>💰</span>
-              <span>Caixa</span>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-menu-item"
-            >
-              <span>👤</span>
-              <span>Equipe</span>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-menu-item"
-            >
-              <span>🏪</span>
-              <span>Unidades</span>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-menu-item"
-            >
-              <span>⚙️</span>
-              <span>Configurações</span>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-menu-item"
+              className="negocio-menu-item negocio-menu-exit"
               onClick={onSair}
             >
               <span>↩</span>
-              <span>Sair do negócio</span>
+
+              <div>
+                <strong>Sair</strong>
+                <small>Encerrar esta sessão</small>
+              </div>
+
+              <b>›</b>
             </button>
           </div>
         </div>
       )}
-    </>
+
+      <style>{`
+        * {
+          box-sizing: border-box;
+        }
+
+        .negocio-page {
+          min-height: 100vh;
+          background: #f7f7f5;
+          color: #222;
+          font-family: Arial, Helvetica, sans-serif;
+          padding-bottom: 90px;
+        }
+
+        .negocio-topbar {
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          background: rgba(255, 255, 255, 0.96);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid #ececea;
+        }
+
+        .negocio-topbar-inner {
+          width: 100%;
+          max-width: 1180px;
+          margin: 0 auto;
+          min-height: 72px;
+          padding: 12px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+        }
+
+        .negocio-brand {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .negocio-brand-logo {
+          width: 44px;
+          height: 44px;
+          border-radius: 13px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f1f1ef;
+          flex-shrink: 0;
+        }
+
+        .negocio-brand-logo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .negocio-brand-logo > * {
+          max-width: 80%;
+          max-height: 80%;
+        }
+
+        .negocio-brand-info {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .negocio-brand-info strong {
+          font-size: 15px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .negocio-brand-info span {
+          font-size: 12px;
+          color: #888;
+        }
+
+        .negocio-menu-button {
+          width: 44px;
+          height: 44px;
+          border: 1px solid #e7e7e5;
+          border-radius: 13px;
+          background: #fff;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          gap: 4px;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+
+        .negocio-menu-button span {
+          width: 18px;
+          height: 2px;
+          border-radius: 2px;
+          background: #222;
+        }
+
+        .negocio-main {
+          width: 100%;
+          max-width: 1180px;
+          margin: 0 auto;
+          padding: 24px 20px 40px;
+        }
+
+        .negocio-hero {
+          position: relative;
+          overflow: hidden;
+          min-height: 360px;
+          border-radius: 28px;
+          background: #e8e8e5;
+          margin-bottom: 20px;
+        }
+
+        .negocio-hero-background {
+          position: absolute;
+          inset: 0;
+          background-size: cover;
+          background-position: center;
+        }
+
+        .negocio-hero-background::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(0, 0, 0, 0.04),
+            rgba(0, 0, 0, 0.62)
+          );
+        }
+
+        .negocio-hero-placeholder {
+          width: 100%;
+          height: 100%;
+          min-height: 360px;
+          background: linear-gradient(
+            135deg,
+            #ededeb,
+            #dcdcd8
+          );
+        }
+
+        .negocio-hero-content {
+          position: relative;
+          z-index: 2;
+          min-height: 360px;
+          padding: 32px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          color: #fff;
+        }
+
+        .negocio-logo-large {
+          width: 84px;
+          height: 84px;
+          border-radius: 22px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #fff;
+          margin-bottom: 16px;
+          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .negocio-logo-large img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .negocio-logo-large > * {
+          max-width: 75%;
+          max-height: 75%;
+        }
+
+        .negocio-hero-text h1 {
+          margin: 0;
+          font-size: clamp(28px, 5vw, 46px);
+          line-height: 1.05;
+          letter-spacing: -1.2px;
+        }
+
+        .negocio-hero-text p {
+          margin: 9px 0 0;
+          color: rgba(255, 255, 255, 0.82);
+          font-size: 15px;
+        }
+
+        .negocio-status {
+          margin-top: 18px;
+          width: fit-content;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.14);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .negocio-status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #72df93;
+        }
+
+        .negocio-welcome {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          padding: 28px;
+          background: #fff;
+          border: 1px solid #ebebe8;
+          border-radius: 24px;
+          margin-bottom: 36px;
+        }
+
+        .negocio-eyebrow {
+          display: block;
+          margin-bottom: 7px;
+          color: #999;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+        }
+
+        .negocio-welcome h2,
+        .negocio-section-heading h2 {
+          margin: 0;
+          font-size: 24px;
+          line-height: 1.2;
+          letter-spacing: -0.5px;
+        }
+
+        .negocio-welcome p {
+          max-width: 670px;
+          margin: 10px 0 0;
+          color: #777;
+          line-height: 1.55;
+          font-size: 14px;
+        }
+
+        .negocio-outline-button,
+        .negocio-primary-button {
+          border: 0;
+          cursor: pointer;
+          white-space: nowrap;
+          font-size: 14px;
+          font-weight: 700;
+          border-radius: 14px;
+          padding: 13px 18px;
+        }
+
+        .negocio-outline-button {
+          background: #fff;
+          border: 1px solid #ddd;
+          color: #222;
+        }
+
+        .negocio-primary-button {
+          background: #222;
+          color: #fff;
+        }
+
+        .negocio-section {
+          margin-bottom: 38px;
+        }
+
+        .negocio-section-heading {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 16px;
+        }
+
+        .negocio-progress {
+          color: #999;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .negocio-checklist {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .negocio-check-item {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          text-align: left;
+          padding: 16px;
+          border: 1px solid #e9e9e6;
+          border-radius: 18px;
+          background: #fff;
+          cursor: pointer;
+        }
+
+        .negocio-check-icon {
+          width: 32px;
+          height: 32px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: #f1f1ee;
+          color: #999;
+          font-size: 13px;
+        }
+
+        .negocio-check-content {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex: 1;
+        }
+
+        .negocio-check-content strong {
+          color: #2b2b2b;
+          font-size: 14px;
+        }
+
+        .negocio-check-content small {
+          color: #999;
+          font-size: 12px;
+          line-height: 1.35;
+        }
+
+        .negocio-arrow {
+          color: #aaa;
+          font-size: 24px;
+          line-height: 1;
+        }
+
+        .negocio-actions-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 12px;
+        }
+
+        .negocio-action {
+          min-height: 160px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: flex-start;
+          gap: 8px;
+          padding: 20px;
+          border: 1px solid #e8e8e5;
+          border-radius: 20px;
+          background: #fff;
+          text-align: left;
+          cursor: pointer;
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.18s ease;
+        }
+
+        .negocio-action:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.06);
+        }
+
+        .negocio-action-icon {
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: #f1f1ee;
+          color: #333;
+          font-size: 15px;
+          font-weight: 700;
+          margin-bottom: 6px;
+        }
+
+        .negocio-action strong {
+          font-size: 14px;
+          color: #292929;
+        }
+
+        .negocio-action small {
+          color: #999;
+          line-height: 1.4;
+          font-size: 12px;
+        }
+
+        .negocio-vitrine-action {
+          border-color: #d9d9d5;
+          background: #fdfdfc;
+        }
+
+        .negocio-unit-card {
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+          padding: 20px;
+          background: #fff;
+          border: 1px solid #e8e8e5;
+          border-radius: 20px;
+        }
+
+        .negocio-unit-icon {
+          width: 44px;
+          height: 44px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 14px;
+          background: #f1f1ee;
+          font-size: 20px;
+        }
+
+        .negocio-unit-content {
+          min-width: 0;
+        }
+
+        .negocio-unit-content strong {
+          display: block;
+          font-size: 15px;
+        }
+
+        .negocio-unit-content p {
+          margin: 7px 0 4px;
+          color: #777;
+          line-height: 1.5;
+          font-size: 13px;
+        }
+
+        .negocio-unit-content span {
+          color: #aaa;
+          font-size: 12px;
+        }
+
+        .negocio-vitrine-cta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          padding: 28px;
+          border-radius: 24px;
+          background: #222;
+          color: #fff;
+        }
+
+        .negocio-vitrine-cta .negocio-eyebrow {
+          color: #999;
+        }
+
+        .negocio-vitrine-cta h2 {
+          margin: 0;
+          font-size: 25px;
+          line-height: 1.2;
+          letter-spacing: -0.5px;
+        }
+
+        .negocio-vitrine-cta p {
+          max-width: 620px;
+          margin: 10px 0 0;
+          color: #aaa;
+          line-height: 1.5;
+          font-size: 13px;
+        }
+
+        .negocio-vitrine-cta .negocio-primary-button {
+          background: #fff;
+          color: #222;
+        }
+
+        .negocio-bottom-nav {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 40;
+          height: 72px;
+          display: flex;
+          align-items: stretch;
+          justify-content: center;
+          gap: 4px;
+          padding: 6px 10px;
+          background: rgba(255, 255, 255, 0.97);
+          backdrop-filter: blur(12px);
+          border-top: 1px solid #e7e7e5;
+        }
+
+        .negocio-nav-button {
+          width: 100%;
+          max-width: 130px;
+          border: 0;
+          background: transparent;
+          color: #999;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          border-radius: 12px;
+          cursor: pointer;
+        }
+
+        .negocio-nav-button span {
+          font-size: 19px;
+          line-height: 1;
+        }
+
+        .negocio-nav-button small {
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .negocio-nav-active {
+          color: #222;
+          background: #f5f5f2;
+        }
+
+        .negocio-menu-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          justify-content: flex-end;
+          background: rgba(0, 0, 0, 0.38);
+        }
+
+        .negocio-menu {
+          width: min(420px, 100%);
+          height: 100%;
+          padding: 26px 20px;
+          background: #fff;
+          overflow-y: auto;
+          animation: negocioMenuIn 0.2s ease;
+        }
+
+        @keyframes negocioMenuIn {
+          from {
+            transform: translateX(30px);
+            opacity: 0.7;
+          }
+
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        .negocio-menu-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 20px;
+          padding-bottom: 24px;
+        }
+
+        .negocio-menu-header h2 {
+          margin: 0;
+          font-size: 22px;
+          line-height: 1.2;
+        }
+
+        .negocio-menu-close {
+          width: 40px;
+          height: 40px;
+          border: 1px solid #e5e5e2;
+          border-radius: 12px;
+          background: #fff;
+          color: #222;
+          font-size: 24px;
+          cursor: pointer;
+        }
+
+        .negocio-menu-item {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 15px 4px;
+          border: 0;
+          border-bottom: 1px solid #eeeeeb;
+          background: transparent;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .negocio-menu-item > span {
+          width: 38px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border-radius: 11px;
+          background: #f2f2ef;
+          color: #333;
+        }
+
+        .negocio-menu-item > div {
+          min-width: 0;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .negocio-menu-item strong {
+          font-size: 14px;
+          color: #222;
+        }
+
+        .negocio-menu-item small {
+          font-size: 11px;
+          color: #999;
+        }
+
+        .negocio-menu-item b {
+          color: #aaa;
+          font-size: 22px;
+          font-weight: 400;
+        }
+
+        .negocio-menu-divider {
+          height: 22px;
+        }
+
+        .negocio-menu-exit {
+          color: #a33;
+        }
+
+        .negocio-menu-exit > span {
+          color: #a33;
+          background: #f8eeee;
+        }
+
+        .negocio-menu-exit strong {
+          color: #a33;
+        }
+
+        @media (max-width: 760px) {
+          .negocio-main {
+            padding: 14px 14px 28px;
+          }
+
+          .negocio-hero,
+          .negocio-hero-placeholder {
+            min-height: 320px;
+          }
+
+          .negocio-hero-content {
+            min-height: 320px;
+            padding: 22px;
+          }
+
+          .negocio-welcome {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 22px;
+          }
+
+          .negocio-outline-button {
+            width: 100%;
+          }
+
+          .negocio-checklist {
+            grid-template-columns: 1fr;
+          }
+
+          .negocio-actions-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .negocio-vitrine-cta {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .negocio-vitrine-cta .negocio-primary-button {
+            width: 100%;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .negocio-topbar-inner {
+            padding: 10px 14px;
+          }
+
+          .negocio-brand-info strong {
+            max-width: 190px;
+          }
+
+          .negocio-hero {
+            border-radius: 22px;
+          }
+
+          .negocio-hero-content {
+            padding: 20px;
+          }
+
+          .negocio-logo-large {
+            width: 70px;
+            height: 70px;
+            border-radius: 18px;
+          }
+
+          .negocio-hero-text h1 {
+            font-size: 30px;
+          }
+
+          .negocio-section-heading h2 {
+            font-size: 21px;
+          }
+
+          .negocio-actions-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .negocio-action {
+            min-height: auto;
+          }
+
+          .negocio-vitrine-cta {
+            padding: 22px;
+          }
+
+          .negocio-vitrine-cta h2 {
+            font-size: 22px;
+          }
+        }
+      `}</style>
+    </div>
   )
 }
