@@ -4,6 +4,7 @@ import CadastroPage from './pages/CadastroPage'
 import InicioPage from './pages/InicioPage'
 import CadastrarNegocioPage from './pages/CadastrarNegocioPage'
 import NegocioPage from './pages/NegocioPage'
+import PaginaPublicaNegocioPage from './pages/PaginaPublicaNegocioPage'
 
 type Page =
   | 'login'
@@ -11,6 +12,7 @@ type Page =
   | 'inicio'
   | 'cadastrar-negocio'
   | 'negocio'
+  | 'pagina-publica'
 
 function App() {
   const [page, setPage] = useState<Page>('login')
@@ -49,6 +51,20 @@ function App() {
           setEmpresaId(null)
           setPage('login')
         }}
+      />
+    )
+  }
+
+  if (page === 'pagina-publica') {
+    if (!empresaId) {
+      setPage('inicio')
+      return null
+    }
+
+    return (
+      <PaginaPublicaNegocioPage
+        empresaId={empresaId}
+        onVoltar={() => setPage('negocio')}
       />
     )
   }
