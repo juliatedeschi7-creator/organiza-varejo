@@ -74,19 +74,21 @@ function App() {
 
   if (page === 'inicio') {
     return (
-      <InicioPage
-        onExplorar={() => {
-          console.log('Abrir área de lojas e compras')
-        }}
-        onCadastrarNegocio={() => {
-          setPage('cadastrar-negocio')
-        }}
-        onAgoraNao={() => {
-          setPage('login')
-        }}
-      />
-    )
-  }
+<InicioPage
+  onExplorar={() => {
+    console.log('Abrir área de lojas e compras')
+  }}
+  onCadastrarNegocio={() => {
+    setPage('cadastrar-negocio')
+  }}
+  onAgoraNao={() => {
+    setPage('login')
+  }}
+  onAbrirEmpresa={(id) => {
+    setEmpresaId(id)
+    setPage('negocio')
+  }}
+/>
 
   return (
     <LoginPage
