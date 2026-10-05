@@ -7,6 +7,7 @@ interface NegocioPageProps {
   onSair: () => void
   onAbrirVitrine: () => void
   onAbrirProdutos: () => void
+  onAbrirCategorias: () => void
 }
 
 interface Empresa {
@@ -47,6 +48,7 @@ export default function NegocioPage({
   onSair,
   onAbrirVitrine,
   onAbrirProdutos,
+  onAbrirCategorias,
 }: NegocioPageProps) {
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [filial, setFilial] = useState<Filial | null>(null)
@@ -84,6 +86,7 @@ export default function NegocioPage({
             'Erro ao carregar empresa:',
             empresaError
           )
+
           setEmpresa(null)
           return
         }
@@ -122,11 +125,14 @@ export default function NegocioPage({
             'Erro ao carregar unidade:',
             filialError
           )
+
           setFilial(null)
           return
         }
 
-        setFilial(filialData as Filial | null)
+        setFilial(
+          filialData as Filial | null
+        )
       } finally {
         setCarregando(false)
       }
@@ -169,8 +175,12 @@ export default function NegocioPage({
       <div className="negocio-loading">
         <div className="negocio-loading-card">
           <Logo />
+
           <div className="negocio-spinner" />
-          <p>Carregando seu negócio...</p>
+
+          <p>
+            Carregando seu negócio...
+          </p>
         </div>
 
         <style>{`
@@ -226,7 +236,9 @@ export default function NegocioPage({
         <div className="negocio-error-card">
           <Logo />
 
-          <h1>Não encontramos seu negócio</h1>
+          <h1>
+            Não encontramos seu negócio
+          </h1>
 
           <p>
             Não foi possível carregar os dados deste negócio.
@@ -294,7 +306,9 @@ export default function NegocioPage({
             </div>
 
             <div className="negocio-brand-info">
-              <strong>{empresa.nome_fantasia}</strong>
+              <strong>
+                {empresa.nome_fantasia}
+              </strong>
 
               <span>
                 {filial?.nome || 'Unidade principal'}
@@ -345,21 +359,28 @@ export default function NegocioPage({
             </div>
 
             <div className="negocio-hero-text">
-              <h1>{empresa.nome_fantasia}</h1>
+              <h1>
+                {empresa.nome_fantasia}
+              </h1>
 
               <p>
                 {filial?.cidade ||
                   empresa.cidade ||
                   'Seu negócio no digital'}
 
-                {filial?.estado || empresa.estado
-                  ? `, ${filial?.estado || empresa.estado}`
+                {filial?.estado ||
+                empresa.estado
+                  ? `, ${
+                      filial?.estado ||
+                      empresa.estado
+                    }`
                   : ''}
               </p>
             </div>
 
             <div className="negocio-status">
               <span className="negocio-status-dot" />
+
               {statusTexto()}
             </div>
           </div>
@@ -398,7 +419,9 @@ export default function NegocioPage({
                 Primeiros passos
               </span>
 
-              <h2>Deixe seu negócio completo</h2>
+              <h2>
+                Deixe seu negócio completo
+              </h2>
             </div>
 
             <span className="negocio-progress">
@@ -416,14 +439,18 @@ export default function NegocioPage({
               </span>
 
               <span className="negocio-check-content">
-                <strong>Dados principais</strong>
+                <strong>
+                  Dados principais
+                </strong>
 
                 <small>
                   Nome, contato e informações do negócio
                 </small>
               </span>
 
-              <span className="negocio-arrow">›</span>
+              <span className="negocio-arrow">
+                ›
+              </span>
             </button>
 
             <button
@@ -435,7 +462,9 @@ export default function NegocioPage({
               </span>
 
               <span className="negocio-check-content">
-                <strong>Endereço</strong>
+                <strong>
+                  Endereço
+                </strong>
 
                 <small>
                   Informe onde seus clientes podem encontrar
@@ -443,7 +472,9 @@ export default function NegocioPage({
                 </small>
               </span>
 
-              <span className="negocio-arrow">›</span>
+              <span className="negocio-arrow">
+                ›
+              </span>
             </button>
 
             <button
@@ -455,7 +486,9 @@ export default function NegocioPage({
               </span>
 
               <span className="negocio-check-content">
-                <strong>Adicionar logo</strong>
+                <strong>
+                  Adicionar logo
+                </strong>
 
                 <small>
                   Deixe sua vitrine com a identidade do seu
@@ -463,7 +496,9 @@ export default function NegocioPage({
                 </small>
               </span>
 
-              <span className="negocio-arrow">›</span>
+              <span className="negocio-arrow">
+                ›
+              </span>
             </button>
 
             <button
@@ -475,14 +510,18 @@ export default function NegocioPage({
               </span>
 
               <span className="negocio-check-content">
-                <strong>Personalizar sua vitrine</strong>
+                <strong>
+                  Personalizar sua vitrine
+                </strong>
 
                 <small>
                   Escolha como seu negócio será apresentado
                 </small>
               </span>
 
-              <span className="negocio-arrow">›</span>
+              <span className="negocio-arrow">
+                ›
+              </span>
             </button>
 
             <button
@@ -504,7 +543,9 @@ export default function NegocioPage({
                 </small>
               </span>
 
-              <span className="negocio-arrow">›</span>
+              <span className="negocio-arrow">
+                ›
+              </span>
             </button>
           </div>
         </section>
@@ -516,7 +557,9 @@ export default function NegocioPage({
                 Acesso rápido
               </span>
 
-              <h2>Organize seu negócio</h2>
+              <h2>
+                Organize seu negócio
+              </h2>
             </div>
           </div>
 
@@ -530,10 +573,30 @@ export default function NegocioPage({
                 ▦
               </span>
 
-              <strong>Produtos e serviços</strong>
+              <strong>
+                Produtos e serviços
+              </strong>
 
               <small>
                 Cadastre o que você oferece
+              </small>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-action"
+              onClick={onAbrirCategorias}
+            >
+              <span className="negocio-action-icon">
+                ≡
+              </span>
+
+              <strong>
+                Categorias
+              </strong>
+
+              <small>
+                Organize seus produtos por categoria
               </small>
             </button>
 
@@ -545,7 +608,9 @@ export default function NegocioPage({
                 ♙
               </span>
 
-              <strong>Clientes</strong>
+              <strong>
+                Clientes
+              </strong>
 
               <small>
                 Organize seus clientes
@@ -560,7 +625,9 @@ export default function NegocioPage({
                 ▤
               </span>
 
-              <strong>Estoque</strong>
+              <strong>
+                Estoque
+              </strong>
 
               <small>
                 Acompanhe seus produtos
@@ -575,7 +642,9 @@ export default function NegocioPage({
                 R$
               </span>
 
-              <strong>Vendas</strong>
+              <strong>
+                Vendas
+              </strong>
 
               <small>
                 Acompanhe suas vendas
@@ -591,7 +660,9 @@ export default function NegocioPage({
                 ◉
               </span>
 
-              <strong>Minha vitrine</strong>
+              <strong>
+                Minha vitrine
+              </strong>
 
               <small>
                 Veja como seus clientes verão
@@ -607,7 +678,9 @@ export default function NegocioPage({
                 Unidade
               </span>
 
-              <h2>Seu endereço</h2>
+              <h2>
+                Seu endereço
+              </h2>
             </div>
           </div>
 
@@ -618,11 +691,14 @@ export default function NegocioPage({
 
             <div className="negocio-unit-content">
               <strong>
-                {filial?.nome || 'Unidade principal'}
+                {filial?.nome ||
+                  'Unidade principal'}
               </strong>
 
               {enderecoCompleto() ? (
-                <p>{enderecoCompleto()}</p>
+                <p>
+                  {enderecoCompleto()}
+                </p>
               ) : (
                 <p>
                   Endereço ainda não informado.
@@ -720,13 +796,17 @@ export default function NegocioPage({
                   Menu
                 </span>
 
-                <h2>{empresa.nome_fantasia}</h2>
+                <h2>
+                  {empresa.nome_fantasia}
+                </h2>
               </div>
 
               <button
                 type="button"
                 className="negocio-menu-close"
-                onClick={() => setMenuAberto(false)}
+                onClick={() =>
+                  setMenuAberto(false)
+                }
                 aria-label="Fechar menu"
               >
                 ×
@@ -761,13 +841,38 @@ export default function NegocioPage({
               className="negocio-menu-item"
               onClick={() => {
                 setMenuAberto(false)
+                onAbrirCategorias()
+              }}
+            >
+              <span>≡</span>
+
+              <div>
+                <strong>
+                  Categorias
+                </strong>
+
+                <small>
+                  Organize os produtos da sua vitrine
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
                 onAbrirVitrine()
               }}
             >
               <span>◉</span>
 
               <div>
-                <strong>Minha vitrine</strong>
+                <strong>
+                  Minha vitrine
+                </strong>
 
                 <small>
                   Visualizar como cliente
@@ -787,7 +892,9 @@ export default function NegocioPage({
               <span>⚙</span>
 
               <div>
-                <strong>Configurações</strong>
+                <strong>
+                  Configurações
+                </strong>
 
                 <small>
                   Configure seu negócio
@@ -807,7 +914,9 @@ export default function NegocioPage({
               <span>?</span>
 
               <div>
-                <strong>Ajuda</strong>
+                <strong>
+                  Ajuda
+                </strong>
 
                 <small>
                   Encontre respostas e orientações
@@ -827,7 +936,9 @@ export default function NegocioPage({
               <span>↩</span>
 
               <div>
-                <strong>Sair</strong>
+                <strong>
+                  Sair
+                </strong>
 
                 <small>
                   Encerrar acesso ao negócio
@@ -1208,7 +1319,9 @@ export default function NegocioPage({
           background: #fff;
           text-align: left;
           cursor: pointer;
-          transition: transform .18s ease, box-shadow .18s ease;
+          transition:
+            transform .18s ease,
+            box-shadow .18s ease;
         }
 
         .negocio-action:hover {
