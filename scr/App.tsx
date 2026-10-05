@@ -6,6 +6,7 @@ import CadastrarNegocioPage from './pages/CadastrarNegocioPage'
 import NegocioPage from './pages/NegocioPage'
 import PaginaPublicaNegocioPage from './pages/PaginaPublicaNegocioPage'
 import ProdutosPage from './pages/ProdutosPage'
+import CategoriasPage from './pages/CategoriasPage'
 
 type Page =
   | 'login'
@@ -14,11 +15,13 @@ type Page =
   | 'cadastrar-negocio'
   | 'negocio'
   | 'produtos'
+  | 'categorias'
   | 'pagina-publica'
 
 function App() {
   const [page, setPage] = useState<Page>('login')
-  const [empresaId, setEmpresaId] = useState<string | null>(null)
+  const [empresaId, setEmpresaId] =
+    useState<string | null>(null)
 
   if (page === 'cadastro') {
     return (
@@ -59,6 +62,9 @@ function App() {
         onAbrirProdutos={() => {
           setPage('produtos')
         }}
+        onAbrirCategorias={() => {
+          setPage('categorias')
+        }}
       />
     )
   }
@@ -71,6 +77,20 @@ function App() {
 
     return (
       <ProdutosPage
+        empresaId={empresaId}
+        onVoltar={() => setPage('negocio')}
+      />
+    )
+  }
+
+  if (page === 'categorias') {
+    if (!empresaId) {
+      setPage('inicio')
+      return null
+    }
+
+    return (
+      <CategoriasPage
         empresaId={empresaId}
         onVoltar={() => setPage('negocio')}
       />
@@ -95,7 +115,9 @@ function App() {
     return (
       <InicioPage
         onExplorar={() => {
-          console.log('Abrir área de lojas e compras')
+          console.log(
+            'Abrir área de lojas e compras'
+          )
         }}
         onCadastrarNegocio={() => {
           setPage('cadastrar-negocio')
