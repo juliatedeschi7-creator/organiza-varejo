@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { Logo } from '../components/Logo'
+import ProdutoDetalhePage from './ProdutoDetalhePage'
 
 interface PaginaPublicaNegocioPageProps {
   empresaId: string
@@ -34,1049 +36,1689 @@ interface Filial {
   ativa: boolean
 }
 
+interface Categoria {
+  categoria_id: string
+  empresa_id: string
+  categoria_pai_id: string | null
+  nome: string
+  slug: string
+  descricao: string | null
+  imagem_url: string | null
+  ordem: number
+}
+
+interface Produto {
+  id: string
+  empresa_id: string
+  categoria_id: string | null
+  marca_id: string | null
+  nome: string
+  slug: string
+  descricao: string | null
+  descricao_curta: string | null
+  preco: number
+  preco_promocional: number | null
+  unidade: string
+  vendido_por_peso: boolean
+  vendido_por_medida: boolean
+  destaque_vitrine: boolean
+  visivel_vitrine: boolean
+  ativo: boolean
+}
+
+interface Foto {
+  foto_id: string
+  produto_id: string
+  variacao_id: string | null
+  url: string
+  ordem: number
+  principal: boolean
+  alt_text: string | null
+}
+
+interface ProdutoCard extends Produto {
+  foto_url: string | null
+}
+
+function formatarPreco(valor: number | null | undefined) {
+  if (valor === null || valor === undefined) {
+    return ''
+  }
+
+  return valor.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  })
+}
+
 function formatarWhatsApp(numero: string | null) {
   if (!numero) return null
 
-  const apenasNumeros = numero.replace(/\D/g, '')
+  const somenteNumeros = numero.replace(/\D/g, '')
 
-  if (!apenasNumeros) return null
+  if (!somenteNumeros) return null
 
-  if (apenasNumeros.startsWith('55')) {
-    return apenasNumeros
-  }
-
-  return `55${apenasNumeros}`
+  return somenteNumeros.startsWith('55')
+    ? somenteNumeros
+    : `55${somenteNumeros}`
 }
 
-function montarEndereco(filial: Filial) {
-  const partes = [
-    filial.logradouro,
-    filial.numero,
-    filial.complemento,
-    filial.bairro,
-    filial.cidade,
-    filial.estado,
-  ].filter(Boolean)
-
-  return partes.join(', ')
-}
-
-function PaginaPublicaNegocioPage({
+export default function PaginaPublicaNegocioPage({
   empresaId,
   onVoltar,
 }: PaginaPublicaNegocioPageProps) {
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
-  const [filial, setFilial] = useState<Filial | null>(null)
+  const [filiais, setFiliais] = useState<Filial[]>([])
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [fotos, setFotos] = useState<Foto[]>([])
+
   const [carregando, setCarregando] = useState(true)
-  const [erro, setErro] = useState('')
-  const [favoritado, setFavoritado] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+
+  const [busca, setBusca] = useState('')
+  const [categoriaSelecionada, setCategoriaSelecionada] =
+    useState<string | null>(null)
+
+  const [produtoSelecionado, setProdutoSelecionado] =
+    useState<string | null>(null)
 
   useEffect(() => {
-    async function carregarNegocio() {
+    async function carregarVitrine() {
       setCarregando(true)
-      setErro('')
+      setErro(null)
 
-      const { data: empresaData, error: empresaError } = await supabase
-        .from('empresas')
-        .select(
-          `
-            id,
-            nome_fantasia,
-            logo_url,
-            banner_url,
-            cidade,
-            estado,
-            whatsapp,
-            telefone,
-            email,
-            status
-          `,
+      try {
+        const [
+          empresaResult,
+          filiaisResult,
+          categoriasResult,
+          produtosResult,
+          fotosResult,
+        ] = await Promise.all([
+          supabase
+            .from('empresas')
+            .select(`
+              id,
+              nome_fantasia,
+              logo_url,
+              banner_url,
+              cidade,
+              estado,
+              whatsapp,
+              telefone,
+              email,
+              status
+            `)
+            .eq('id', empresaId)
+            .single(),
+
+          supabase
+            .from('filiais')
+            .select(`
+              id,
+              nome,
+              telefone,
+              whatsapp,
+              cep,
+              logradouro,
+              numero,
+              complemento,
+              bairro,
+              cidade,
+              estado,
+              ativa
+            `)
+            .eq('empresa_id', empresaId)
+            .eq('ativa', true)
+            .order('created_at', {
+              ascending: true,
+            }),
+
+          supabase
+            .from('catalogo_publico_categorias')
+            .select(`
+              categoria_id,
+              empresa_id,
+              categoria_pai_id,
+              nome,
+              slug,
+              descricao,
+              imagem_url,
+              ordem
+            `)
+            .eq('empresa_id', empresaId)
+            .order('ordem', {
+              ascending: true,
+            }),
+
+          supabase
+            .from('produtos')
+            .select(`
+              id,
+              empresa_id,
+              categoria_id,
+              marca_id,
+              nome,
+              slug,
+              descricao,
+              descricao_curta,
+              preco,
+              preco_promocional,
+              unidade,
+              vendido_por_peso,
+              vendido_por_medida,
+              destaque_vitrine,
+              visivel_vitrine,
+              ativo
+            `)
+            .eq('empresa_id', empresaId)
+            .eq('ativo', true)
+            .eq('visivel_vitrine', true)
+            .order('nome', {
+              ascending: true,
+            }),
+
+          supabase
+            .from('catalogo_publico_fotos')
+            .select(`
+              foto_id,
+              produto_id,
+              variacao_id,
+              url,
+              ordem,
+              principal,
+              alt_text
+            `)
+            .order('principal', {
+              ascending: false,
+            })
+            .order('ordem', {
+              ascending: true,
+            }),
+        ])
+
+        if (empresaResult.error) {
+          throw empresaResult.error
+        }
+
+        if (categoriasResult.error) {
+          console.error(
+            'Erro ao carregar categorias:',
+            categoriasResult.error
+          )
+        }
+
+        if (produtosResult.error) {
+          throw produtosResult.error
+        }
+
+        if (fotosResult.error) {
+          console.error(
+            'Erro ao carregar fotos:',
+            fotosResult.error
+          )
+        }
+
+        setEmpresa(
+          empresaResult.data as Empresa
         )
-        .eq('id', empresaId)
-        .maybeSingle()
 
-      if (empresaError) {
-        console.error(empresaError)
-        setErro('Não foi possível carregar o negócio.')
-        setCarregando(false)
-        return
-      }
-
-      if (!empresaData) {
-        setErro('Negócio não encontrado.')
-        setCarregando(false)
-        return
-      }
-
-      const { data: filialData, error: filialError } = await supabase
-        .from('filiais')
-        .select(
-          `
-            id,
-            nome,
-            telefone,
-            whatsapp,
-            cep,
-            logradouro,
-            numero,
-            complemento,
-            bairro,
-            cidade,
-            estado,
-            ativa
-          `,
+        setFiliais(
+          (filiaisResult.data ?? []) as Filial[]
         )
-        .eq('empresa_id', empresaId)
-        .eq('ativa', true)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle()
 
-      if (filialError) {
-        console.error(filialError)
+        setCategorias(
+          (categoriasResult.data ?? []) as Categoria[]
+        )
+
+        setProdutos(
+          (produtosResult.data ?? []) as Produto[]
+        )
+
+        setFotos(
+          (fotosResult.data ?? []) as Foto[]
+        )
+      } catch (error) {
+        console.error(
+          'Erro ao carregar vitrine:',
+          error
+        )
+
+        setErro(
+          'Não foi possível carregar a vitrine deste negócio.'
+        )
+      } finally {
+        setCarregando(false)
       }
-
-      setEmpresa(empresaData as Empresa)
-      setFilial((filialData as Filial | null) ?? null)
-      setCarregando(false)
     }
 
-    carregarNegocio()
+    carregarVitrine()
   }, [empresaId])
 
-  function compartilhar() {
-    if (!empresa) return
+  const produtosComFoto = useMemo<ProdutoCard[]>(() => {
+    return produtos.map((produto) => {
+      const fotoPrincipal =
+        fotos.find(
+          (foto) =>
+            foto.produto_id === produto.id &&
+            foto.principal
+        ) ??
+        fotos.find(
+          (foto) =>
+            foto.produto_id === produto.id
+        )
 
-    const url = window.location.href
+      return {
+        ...produto,
+        foto_url: fotoPrincipal?.url ?? null,
+      }
+    })
+  }, [produtos, fotos])
 
-    if (navigator.share) {
-      navigator
-        .share({
-          title: empresa.nome_fantasia,
-          text: `Conheça ${empresa.nome_fantasia} no Organiza.`,
-          url,
-        })
-        .catch(() => {
-          // O usuário pode simplesmente cancelar o compartilhamento.
-        })
+  const produtosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLocaleLowerCase()
 
-      return
-    }
+    return produtosComFoto.filter((produto) => {
+      const pertenceCategoria =
+        !categoriaSelecionada ||
+        produto.categoria_id === categoriaSelecionada
 
-    navigator.clipboard
-      ?.writeText(url)
-      .then(() => {
-        window.alert('Link da página copiado.')
-      })
-      .catch(() => {
-        window.alert('Não foi possível copiar o link.')
-      })
+      if (!pertenceCategoria) {
+        return false
+      }
+
+      if (!termo) {
+        return true
+      }
+
+      const texto = [
+        produto.nome,
+        produto.descricao,
+        produto.descricao_curta,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase()
+
+      return texto.includes(termo)
+    })
+  }, [
+    produtosComFoto,
+    busca,
+    categoriaSelecionada,
+  ])
+
+  const produtosDestaque = useMemo(() => {
+    return produtosFiltrados.filter(
+      (produto) => produto.destaque_vitrine
+    )
+  }, [produtosFiltrados])
+
+  const categoriasVisiveis = useMemo(() => {
+    return categorias.filter(
+      (categoria) =>
+        !categoria.categoria_pai_id
+    )
+  }, [categorias])
+
+  const filialPrincipal =
+    filiais.length > 0
+      ? filiais[0]
+      : null
+
+  function obterFotoProduto(produtoId: string) {
+    const foto =
+      fotos.find(
+        (item) =>
+          item.produto_id === produtoId &&
+          item.principal
+      ) ??
+      fotos.find(
+        (item) =>
+          item.produto_id === produtoId
+      )
+
+    return foto?.url ?? null
   }
 
-  function abrirWhatsApp() {
-const numero =
-  formatarWhatsApp(filial?.whatsapp ?? null) ||
-  formatarWhatsApp(empresa?.whatsapp ?? null)
+  function abrirWhatsApp(
+    mensagem?: string
+  ) {
+    const numero =
+      formatarWhatsApp(
+        filialPrincipal?.whatsapp ?? null
+      ) ||
+      formatarWhatsApp(
+        empresa?.whatsapp ?? null
+      )
 
-    if (!numero) {
-      window.alert('Este negócio ainda não cadastrou um WhatsApp.')
-      return
-    }
+    if (!numero) return
 
-    const mensagem = encodeURIComponent(
-      `Olá! Encontrei ${empresa?.nome_fantasia} pelo Organiza e gostaria de saber mais.`,
-    )
+    const texto =
+      mensagem ||
+      `Olá! Vim pela vitrine do ${empresa?.nome_fantasia ?? 'negócio'}.`
 
     window.open(
-      `https://wa.me/${numero}?text=${mensagem}`,
-      '_blank',
-      'noopener,noreferrer',
+      `https://wa.me/${numero}?text=${encodeURIComponent(
+        texto
+      )}`,
+      '_blank'
     )
   }
 
-  function abrirTelefone() {
-    const telefone = filial?.telefone || empresa?.telefone
+  function selecionarCategoria(
+    categoriaId: string | null
+  ) {
+    setCategoriaSelecionada(
+      categoriaId
+    )
 
-    if (!telefone) {
-      window.alert('Este negócio ainda não cadastrou um telefone.')
-      return
-    }
+    window.setTimeout(() => {
+      document
+        .getElementById('catalogo')
+        ?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        })
+    }, 50)
+  }
 
-    window.location.href = `tel:${telefone}`
+  if (produtoSelecionado) {
+    return (
+      <ProdutoDetalhePage
+        empresaId={empresaId}
+        produtoId={produtoSelecionado}
+        onVoltar={() =>
+          setProdutoSelecionado(null)
+        }
+      />
+    )
   }
 
   if (carregando) {
     return (
-      <main className="pagina-publica-loading">
-        <div className="pagina-publica-spinner" />
-        <p>Carregando negócio...</p>
+      <div className="vitrine-loading">
+        <div className="vitrine-loading-card">
+          <Logo />
+
+          <div className="vitrine-spinner" />
+
+          <p>
+            Carregando vitrine...
+          </p>
+        </div>
 
         <style>{`
-          .pagina-publica-loading {
+          .vitrine-loading {
             min-height: 100vh;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 14px;
             padding: 24px;
-            background: #f7f7f7;
-            color: #333;
+            background: #fff;
+            color: #222;
             font-family: Arial, sans-serif;
           }
 
-          .pagina-publica-spinner {
-            width: 34px;
-            height: 34px;
-            border: 3px solid #ddd;
-            border-top-color: #222;
-            border-radius: 50%;
-            animation: paginaPublicaGirar 0.8s linear infinite;
+          .vitrine-loading-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
           }
 
-          @keyframes paginaPublicaGirar {
+          .vitrine-loading-card p {
+            margin: 0;
+            color: #888;
+            font-size: 14px;
+          }
+
+          .vitrine-spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid #e8e8e8;
+            border-top-color: #222;
+            border-radius: 50%;
+            animation: vitrineSpin .8s linear infinite;
+          }
+
+          @keyframes vitrineSpin {
             to {
               transform: rotate(360deg);
             }
           }
-
-          .pagina-publica-loading p {
-            margin: 0;
-            font-size: 14px;
-          }
         `}</style>
-      </main>
+      </div>
     )
   }
 
   if (erro || !empresa) {
     return (
-      <main className="pagina-publica-erro">
-        <div className="pagina-publica-erro-card">
-          <span className="pagina-publica-erro-icone">!</span>
+      <div className="vitrine-error">
+        <div className="vitrine-error-card">
+          <Logo />
 
-          <h1>Não foi possível abrir esta página</h1>
+          <h1>
+            Vitrine indisponível
+          </h1>
 
-          <p>{erro || 'Negócio não encontrado.'}</p>
+          <p>
+            {erro ||
+              'Não encontramos este negócio.'}
+          </p>
 
           {onVoltar && (
-            <button type="button" onClick={onVoltar}>
+            <button
+              type="button"
+              onClick={onVoltar}
+            >
               Voltar
             </button>
           )}
         </div>
 
         <style>{`
-          .pagina-publica-erro {
+          .vitrine-error {
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 24px;
-            background: #f7f7f7;
+            background: #f8f8f6;
             font-family: Arial, sans-serif;
           }
 
-          .pagina-publica-erro-card {
+          .vitrine-error-card {
             width: 100%;
-            max-width: 420px;
+            max-width: 400px;
             padding: 32px 24px;
-            text-align: center;
+            border-radius: 24px;
             background: #fff;
-            border: 1px solid #e7e7e7;
-            border-radius: 20px;
-            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.06);
+            text-align: center;
+            box-shadow: 0 15px 40px rgba(0,0,0,.06);
           }
 
-          .pagina-publica-erro-icone {
-            width: 46px;
-            height: 46px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 16px;
-            border-radius: 50%;
-            background: #f1f1f1;
-            font-size: 22px;
-            font-weight: 700;
+          .vitrine-error-card h1 {
+            margin: 24px 0 8px;
+            font-size: 24px;
           }
 
-          .pagina-publica-erro-card h1 {
-            margin: 0 0 10px;
-            font-size: 21px;
-          }
-
-          .pagina-publica-erro-card p {
+          .vitrine-error-card p {
             margin: 0 0 22px;
-            color: #666;
+            color: #777;
             line-height: 1.5;
           }
 
-          .pagina-publica-erro-card button {
+          .vitrine-error-card button {
             border: 0;
-            padding: 12px 20px;
             border-radius: 12px;
+            padding: 13px 18px;
             background: #222;
             color: #fff;
-            font-size: 14px;
+            font-weight: 700;
             cursor: pointer;
           }
         `}</style>
-      </main>
+      </div>
     )
   }
 
-  const endereco = filial ? montarEndereco(filial) : ''
-  const cidade = filial?.cidade || empresa.cidade
-  const estado = filial?.estado || empresa.estado
-  const telefone = filial?.telefone || empresa.telefone
-
   return (
-    <main className="pagina-publica">
-      <div className="pagina-publica-container">
-        <section
-          className="pagina-publica-capa"
-          style={
-            empresa.banner_url
-              ? {
-                  backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.45)), url("${empresa.banner_url}")`,
-                }
-              : undefined
-          }
-        >
-          <div className="pagina-publica-capa-conteudo">
-            <button
-              type="button"
-              className="pagina-publica-voltar"
-              onClick={onVoltar}
-              aria-label="Voltar"
-            >
-              ←
-            </button>
+    <div className="vitrine-page">
+      <header className="vitrine-topbar">
+        <div className="vitrine-topbar-inner">
+          <div className="vitrine-brand">
+            {empresa.logo_url ? (
+              <img
+                src={empresa.logo_url}
+                alt={`Logo de ${empresa.nome_fantasia}`}
+              />
+            ) : (
+              <Logo />
+            )}
 
-            <div className="pagina-publica-capa-acoes">
-              <button
-                type="button"
-                onClick={compartilhar}
-                aria-label="Compartilhar negócio"
-              >
-                ↗
-              </button>
+            <div>
+              <strong>
+                {empresa.nome_fantasia}
+              </strong>
 
-              <button
-                type="button"
-                className={favoritado ? 'ativo' : ''}
-                onClick={() => setFavoritado((valor) => !valor)}
-                aria-label="Favoritar negócio"
-              >
-                {favoritado ? '♥' : '♡'}
-              </button>
-            </div>
-
-            <div className="pagina-publica-identidade">
-              <div className="pagina-publica-logo">
-                {empresa.logo_url ? (
-                  <img
-                    src={empresa.logo_url}
-                    alt={`Logo de ${empresa.nome_fantasia}`}
-                  />
-                ) : (
-                  <span>
-                    {empresa.nome_fantasia
-                      .trim()
-                      .charAt(0)
-                      .toUpperCase()}
-                  </span>
-                )}
-              </div>
-
-              <h1>{empresa.nome_fantasia}</h1>
-
-              {(cidade || estado) && (
-                <p>
-                  {cidade}
-                  {cidade && estado ? ' • ' : ''}
-                  {estado}
-                </p>
+              {empresa.cidade && (
+                <small>
+                  {empresa.cidade}
+                  {empresa.estado
+                    ? `, ${empresa.estado}`
+                    : ''}
+                </small>
               )}
             </div>
           </div>
-        </section>
 
-        <section className="pagina-publica-status">
-          <div className="pagina-publica-status-item">
-            <span className="pagina-publica-status-bolinha" />
-            <span>
-              {empresa.status === 'ativa'
-                ? 'Negócio ativo'
-                : 'Negócio temporariamente indisponível'}
-            </span>
-          </div>
-
-          {filial && (
-            <div className="pagina-publica-unidade">
-              {filial.nome}
-            </div>
+          {onVoltar && (
+            <button
+              type="button"
+              className="vitrine-back"
+              onClick={onVoltar}
+            >
+              Voltar
+            </button>
           )}
+        </div>
+      </header>
+
+      <main>
+        <section className="vitrine-cover">
+          {empresa.banner_url ? (
+            <img
+              src={empresa.banner_url}
+              alt=""
+            />
+          ) : (
+            <div className="vitrine-cover-empty" />
+          )}
+
+          <div className="vitrine-cover-overlay" />
+
+          <div className="vitrine-cover-content">
+            <div className="vitrine-logo">
+              {empresa.logo_url ? (
+                <img
+                  src={empresa.logo_url}
+                  alt={`Logo de ${empresa.nome_fantasia}`}
+                />
+              ) : (
+                <Logo />
+              )}
+            </div>
+
+            <h1>
+              {empresa.nome_fantasia}
+            </h1>
+
+            <p>
+              {empresa.cidade
+                ? `${empresa.cidade}${
+                    empresa.estado
+                      ? `, ${empresa.estado}`
+                      : ''
+                  }`
+                : 'Vitrine digital'}
+            </p>
+
+            <div className="vitrine-status">
+              <span />
+              Negócio ativo
+            </div>
+          </div>
         </section>
 
-        <section className="pagina-publica-busca">
-          <label htmlFor="busca-negocio">
-            O que você está procurando?
-          </label>
+        <div className="vitrine-container">
+          <section className="vitrine-intro">
+            <div>
+              <span>
+                Vitrine digital
+              </span>
 
-          <div className="pagina-publica-busca-input">
+              <h2>
+                Encontre o que você procura
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              className="vitrine-whatsapp"
+              onClick={() => abrirWhatsApp()}
+            >
+              Falar pelo WhatsApp
+            </button>
+          </section>
+
+          <section className="vitrine-search">
             <span>⌕</span>
 
             <input
-              id="busca-negocio"
               type="search"
-              placeholder="Buscar produtos ou serviços"
-              disabled
+              value={busca}
+              onChange={(event) =>
+                setBusca(event.target.value)
+              }
+              placeholder="O que você está procurando?"
             />
-          </div>
 
-          <small>
-            A busca será ativada quando o catálogo deste negócio estiver
-            cadastrado.
-          </small>
-        </section>
+            {busca && (
+              <button
+                type="button"
+                onClick={() => setBusca('')}
+              >
+                ×
+              </button>
+            )}
+          </section>
 
-        <section className="pagina-publica-secao">
-          <div className="pagina-publica-secao-titulo">
-            <div>
-              <span className="pagina-publica-etiqueta">
-                EXPLORAR
-              </span>
-              <h2>Categorias</h2>
-            </div>
-          </div>
+          {categoriasVisiveis.length > 0 && (
+            <section className="vitrine-categorias">
+              <div className="vitrine-section-heading">
+                <div>
+                  <span>
+                    Explore
+                  </span>
 
-          <div className="pagina-publica-vazio">
-            <div className="pagina-publica-vazio-icone">+</div>
-
-            <strong>As categorias aparecerão aqui</strong>
-
-            <p>
-              O negócio poderá criar e organizar suas próprias
-              categorias.
-            </p>
-          </div>
-        </section>
-
-        <section className="pagina-publica-secao">
-          <div className="pagina-publica-secao-titulo">
-            <div>
-              <span className="pagina-publica-etiqueta">
-                EM DESTAQUE
-              </span>
-              <h2>Produtos e serviços</h2>
-            </div>
-          </div>
-
-          <div className="pagina-publica-vazio">
-            <div className="pagina-publica-vazio-icone">+</div>
-
-            <strong>O catálogo deste negócio está sendo preparado</strong>
-
-            <p>
-              Quando os produtos e serviços forem cadastrados, eles
-              aparecerão nesta vitrine.
-            </p>
-          </div>
-        </section>
-
-        <section className="pagina-publica-sobre">
-          <span className="pagina-publica-etiqueta">SOBRE</span>
-
-          <h2>Sobre o negócio</h2>
-
-          <p>
-            Esta área será personalizada pelo próprio negócio para
-            contar sua história, apresentar sua proposta e mostrar o
-            que faz de diferente.
-          </p>
-        </section>
-
-        <section className="pagina-publica-secao">
-          <div className="pagina-publica-secao-titulo">
-            <div>
-              <span className="pagina-publica-etiqueta">
-                ONDE ESTAMOS
-              </span>
-              <h2>Localização</h2>
-            </div>
-          </div>
-
-          {filial && endereco ? (
-            <div className="pagina-publica-info-card">
-              <div className="pagina-publica-info-icone">⌖</div>
-
-              <div>
-                <strong>{filial.nome}</strong>
-
-                <p>{endereco}</p>
-
-                {filial.cep && <small>CEP {filial.cep}</small>}
+                  <h2>
+                    Categorias
+                  </h2>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="pagina-publica-vazio pagina-publica-vazio-menor">
-              <strong>Endereço ainda não informado</strong>
-            </div>
+
+              <div className="vitrine-category-list">
+                <button
+                  type="button"
+                  className={
+                    categoriaSelecionada === null
+                      ? 'vitrine-category active'
+                      : 'vitrine-category'
+                  }
+                  onClick={() =>
+                    selecionarCategoria(null)
+                  }
+                >
+                  <div className="vitrine-category-image">
+                    <span>Todos</span>
+                  </div>
+
+                  <strong>
+                    Todos
+                  </strong>
+                </button>
+
+                {categoriasVisiveis.map(
+                  (categoria) => (
+                    <button
+                      type="button"
+                      key={categoria.categoria_id}
+                      className={
+                        categoriaSelecionada ===
+                        categoria.categoria_id
+                          ? 'vitrine-category active'
+                          : 'vitrine-category'
+                      }
+                      onClick={() =>
+                        selecionarCategoria(
+                          categoria.categoria_id
+                        )
+                      }
+                    >
+                      <div className="vitrine-category-image">
+                        {categoria.imagem_url ? (
+                          <img
+                            src={
+                              categoria.imagem_url
+                            }
+                            alt=""
+                          />
+                        ) : (
+                          <span>
+                            {categoria.nome
+                              .charAt(0)
+                              .toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+
+                      <strong>
+                        {categoria.nome}
+                      </strong>
+                    </button>
+                  )
+                )}
+              </div>
+            </section>
           )}
-        </section>
 
-        <section className="pagina-publica-secao">
-          <div className="pagina-publica-secao-titulo">
-            <div>
-              <span className="pagina-publica-etiqueta">
-                CONTATO
-              </span>
-              <h2>Fale com o negócio</h2>
+          {produtosDestaque.length > 0 &&
+            !busca &&
+            !categoriaSelecionada && (
+              <section className="vitrine-section">
+                <div className="vitrine-section-heading">
+                  <div>
+                    <span>
+                      Para você
+                    </span>
+
+                    <h2>
+                      Destaques
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="vitrine-product-grid">
+                  {produtosDestaque.map(
+                    (produto) => (
+                      <button
+                        type="button"
+                        key={produto.id}
+                        className="vitrine-product-card"
+                        onClick={() =>
+                          setProdutoSelecionado(
+                            produto.id
+                          )
+                        }
+                      >
+                        <div className="vitrine-product-image">
+                          {produto.foto_url ? (
+                            <img
+                              src={produto.foto_url}
+                              alt={produto.nome}
+                            />
+                          ) : (
+                            <div className="vitrine-product-placeholder">
+                              <span>
+                                {produto.nome
+                                  .charAt(0)
+                                  .toUpperCase()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="vitrine-product-info">
+                          <strong>
+                            {produto.nome}
+                          </strong>
+
+                          {produto.descricao_curta && (
+                            <p>
+                              {
+                                produto.descricao_curta
+                              }
+                            </p>
+                          )}
+
+                          <div className="vitrine-product-price">
+                            {produto.preco_promocional !==
+                              null &&
+                            produto.preco_promocional <
+                              produto.preco ? (
+                              <>
+                                <small>
+                                  {formatarPreco(
+                                    produto.preco
+                                  )}
+                                </small>
+
+                                <strong>
+                                  {formatarPreco(
+                                    produto.preco_promocional
+                                  )}
+                                </strong>
+                              </>
+                            ) : (
+                              <strong>
+                                {formatarPreco(
+                                  produto.preco
+                                )}
+                              </strong>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  )}
+                </div>
+              </section>
+            )}
+
+          <section
+            className="vitrine-section"
+            id="catalogo"
+          >
+            <div className="vitrine-section-heading">
+              <div>
+                <span>
+                  Catálogo
+                </span>
+
+                <h2>
+                  {categoriaSelecionada
+                    ? categorias.find(
+                        (categoria) =>
+                          categoria.categoria_id ===
+                          categoriaSelecionada
+                      )?.nome || 'Produtos'
+                    : 'Produtos'}
+                </h2>
+              </div>
+
+              <small>
+                {produtosFiltrados.length}{' '}
+                {produtosFiltrados.length === 1
+                  ? 'produto'
+                  : 'produtos'}
+              </small>
             </div>
-          </div>
 
-          <div className="pagina-publica-contatos">
-            {(filial?.whatsapp || empresa.whatsapp) && (
+            {produtosFiltrados.length === 0 ? (
+              <div className="vitrine-empty">
+                <div>
+                  {busca
+                    ? '⌕'
+                    : '◌'}
+                </div>
+
+                <h3>
+                  {busca
+                    ? 'Nenhum produto encontrado'
+                    : 'Ainda não há produtos nesta categoria'}
+                </h3>
+
+                <p>
+                  {busca
+                    ? 'Tente procurar por outro nome ou termo.'
+                    : 'Este negócio ainda está preparando esta parte da vitrine.'}
+                </p>
+
+                {busca && (
+                  <button
+                    type="button"
+                    onClick={() => setBusca('')}
+                  >
+                    Limpar busca
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="vitrine-product-grid">
+                {produtosFiltrados.map(
+                  (produto) => (
+                    <button
+                      type="button"
+                      key={produto.id}
+                      className="vitrine-product-card"
+                      onClick={() =>
+                        setProdutoSelecionado(
+                          produto.id
+                        )
+                      }
+                    >
+                      <div className="vitrine-product-image">
+                        {produto.foto_url ? (
+                          <img
+                            src={produto.foto_url}
+                            alt={produto.nome}
+                          />
+                        ) : (
+                          <div className="vitrine-product-placeholder">
+                            <span>
+                              {produto.nome
+                                .charAt(0)
+                                .toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="vitrine-product-info">
+                        <strong>
+                          {produto.nome}
+                        </strong>
+
+                        {produto.descricao_curta && (
+                          <p>
+                            {produto.descricao_curta}
+                          </p>
+                        )}
+
+                        <div className="vitrine-product-price">
+                          {produto.preco_promocional !==
+                            null &&
+                          produto.preco_promocional <
+                            produto.preco ? (
+                            <>
+                              <small>
+                                {formatarPreco(
+                                  produto.preco
+                                )}
+                              </small>
+
+                              <strong>
+                                {formatarPreco(
+                                  produto.preco_promocional
+                                )}
+                              </strong>
+                            </>
+                          ) : (
+                            <strong>
+                              {formatarPreco(
+                                produto.preco
+                              )}
+                            </strong>
+                          )}
+
+                          {produto.unidade &&
+                            produto.unidade !== 'un' && (
+                              <span>
+                                / {produto.unidade}
+                              </span>
+                            )}
+                        </div>
+                      </div>
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className="vitrine-about">
+            <div>
+              <span>
+                Sobre o negócio
+              </span>
+
+              <h2>
+                {empresa.nome_fantasia}
+              </h2>
+
+              <p>
+                Encontre produtos, informações e formas de
+                entrar em contato diretamente com este
+                negócio.
+              </p>
+            </div>
+
+            <div className="vitrine-contact-buttons">
               <button
                 type="button"
-                className="pagina-publica-contato pagina-publica-contato-principal"
-                onClick={abrirWhatsApp}
+                onClick={() => abrirWhatsApp()}
               >
-                <span>◉</span>
-
-                <div>
-                  <strong>WhatsApp</strong>
-                  <small>Falar com o negócio</small>
-                </div>
-
-                <b>→</b>
+                WhatsApp
               </button>
-            )}
 
-            {telefone && (
-              <button
-                type="button"
-                className="pagina-publica-contato"
-                onClick={abrirTelefone}
-              >
-                <span>☎</span>
+              {empresa.telefone && (
+                <a
+                  href={`tel:${empresa.telefone}`}
+                >
+                  Ligar
+                </a>
+              )}
 
-                <div>
-                  <strong>Telefone</strong>
-                  <small>{telefone}</small>
-                </div>
+              {empresa.email && (
+                <a
+                  href={`mailto:${empresa.email}`}
+                >
+                  E-mail
+                </a>
+              )}
+            </div>
+          </section>
 
-                <b>→</b>
-              </button>
-            )}
+          {filialPrincipal && (
+            <section className="vitrine-location">
+              <div>
+                <span>
+                  Onde estamos
+                </span>
 
-            {empresa.email && (
-              <a
-                className="pagina-publica-contato"
-                href={`mailto:${empresa.email}`}
-              >
-                <span>✉</span>
+                <h2>
+                  {filialPrincipal.nome}
+                </h2>
+              </div>
 
-                <div>
-                  <strong>E-mail</strong>
-                  <small>{empresa.email}</small>
-                </div>
+              <p>
+                {[
+                  filialPrincipal.logradouro,
+                  filialPrincipal.numero,
+                  filialPrincipal.complemento,
+                  filialPrincipal.bairro,
+                  filialPrincipal.cidade,
+                  filialPrincipal.estado,
+                ]
+                  .filter(Boolean)
+                  .join(', ') ||
+                  'Endereço não informado.'}
+              </p>
+            </section>
+          )}
+        </div>
+      </main>
 
-                <b>→</b>
-              </a>
-            )}
-          </div>
-        </section>
+      <footer className="vitrine-footer">
+        <strong>
+          Organiza
+        </strong>
 
-        <section className="pagina-publica-compartilhar">
-          <div>
-            <strong>Gostou deste negócio?</strong>
-
-            <p>Compartilhe esta vitrine com alguém.</p>
-          </div>
-
-          <button type="button" onClick={compartilhar}>
-            Compartilhar
-          </button>
-        </section>
-
-        <footer className="pagina-publica-footer">
-          <span>Feito com</span>
-          <strong>Organiza</strong>
-        </footer>
-      </div>
+        <span>
+          Tecnologia para quem empreende.
+        </span>
+      </footer>
 
       <style>{`
-        * {
-          box-sizing: border-box;
-        }
-
-        .pagina-publica {
+        .vitrine-page {
           min-height: 100vh;
-          background: #f5f5f5;
-          color: #202020;
-          font-family:
-            Inter,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-        }
-
-        .pagina-publica-container {
-          width: 100%;
-          max-width: 760px;
-          margin: 0 auto;
           background: #fff;
-          min-height: 100vh;
-        }
-
-        .pagina-publica-capa {
-          position: relative;
-          min-height: 350px;
-          display: flex;
-          align-items: flex-end;
-          overflow: hidden;
-          background:
-            linear-gradient(135deg, #e9e9e9, #cfcfcf);
-          background-size: cover;
-          background-position: center;
-        }
-
-        .pagina-publica-capa-conteudo {
-          width: 100%;
-          min-height: 350px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 18px;
-          background: linear-gradient(
-            to bottom,
-            rgba(0, 0, 0, 0.18),
-            rgba(0, 0, 0, 0.55)
-          );
-          color: #fff;
-        }
-
-        .pagina-publica-voltar,
-        .pagina-publica-capa-acoes button {
-          width: 42px;
-          height: 42px;
-          border: 0;
-          border-radius: 50%;
-          background: rgba(255, 255, 255, 0.9);
           color: #222;
-          font-size: 20px;
-          cursor: pointer;
-          backdrop-filter: blur(8px);
+          font-family: Arial, sans-serif;
         }
 
-        .pagina-publica-voltar {
-          align-self: flex-start;
+        .vitrine-topbar {
+          position: sticky;
+          top: 0;
+          z-index: 30;
+          background: rgba(255,255,255,.95);
+          backdrop-filter: blur(14px);
+          border-bottom: 1px solid #ededeb;
         }
 
-        .pagina-publica-capa-acoes {
-          position: absolute;
-          top: 18px;
-          right: 18px;
-          display: flex;
-          gap: 8px;
-        }
-
-        .pagina-publica-capa-acoes button.ativo {
-          color: #c51d51;
-        }
-
-        .pagina-publica-identidade {
-          text-align: center;
-          padding-bottom: 10px;
-        }
-
-        .pagina-publica-logo {
-          width: 92px;
-          height: 92px;
+        .vitrine-topbar-inner {
+          width: 100%;
+          max-width: 1180px;
+          min-height: 68px;
+          margin: 0 auto;
+          padding: 10px 20px;
           display: flex;
           align-items: center;
-          justify-content: center;
-          margin: 0 auto 14px;
-          overflow: hidden;
-          border: 4px solid rgba(255, 255, 255, 0.95);
-          border-radius: 50%;
-          background: #fff;
-          color: #333;
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.18);
+          justify-content: space-between;
+          gap: 20px;
         }
 
-        .pagina-publica-logo img {
+        .vitrine-brand {
+          display: flex;
+          align-items: center;
+          gap: 11px;
+          min-width: 0;
+        }
+
+        .vitrine-brand > img {
+          width: 40px;
+          height: 40px;
+          object-fit: cover;
+          border-radius: 12px;
+        }
+
+        .vitrine-brand > div {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .vitrine-brand strong {
+          font-size: 14px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .vitrine-brand small {
+          margin-top: 3px;
+          color: #999;
+          font-size: 11px;
+        }
+
+        .vitrine-back {
+          border: 1px solid #ddd;
+          background: #fff;
+          border-radius: 12px;
+          padding: 9px 14px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .vitrine-cover {
+          position: relative;
+          min-height: 430px;
+          overflow: hidden;
+          background: #e8e8e5;
+        }
+
+        .vitrine-cover > img,
+        .vitrine-cover-empty {
+          position: absolute;
+          inset: 0;
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
 
-        .pagina-publica-logo span {
-          font-size: 34px;
-          font-weight: 700;
+        .vitrine-cover-empty {
+          background: linear-gradient(
+            135deg,
+            #ecece9,
+            #d9d9d5
+          );
         }
 
-        .pagina-publica-identidade h1 {
-          margin: 0;
-          font-size: clamp(26px, 6vw, 38px);
-          line-height: 1.1;
-          font-weight: 700;
+        .vitrine-cover-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(0,0,0,.08),
+            rgba(0,0,0,.68)
+          );
         }
 
-        .pagina-publica-identidade p {
-          margin: 9px 0 0;
-          font-size: 14px;
-          opacity: 0.92;
-        }
-
-        .pagina-publica-status {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 14px 18px;
-          border-bottom: 1px solid #ededed;
-          background: #fff;
-        }
-
-        .pagina-publica-status-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 13px;
-          color: #555;
-        }
-
-        .pagina-publica-status-bolinha {
-          width: 9px;
-          height: 9px;
-          border-radius: 50%;
-          background: #2f9e44;
-        }
-
-        .pagina-publica-unidade {
-          font-size: 12px;
-          color: #777;
-        }
-
-        .pagina-publica-busca {
-          padding: 24px 18px 8px;
-        }
-
-        .pagina-publica-busca label {
-          display: block;
-          margin-bottom: 9px;
-          font-size: 15px;
-          font-weight: 600;
-        }
-
-        .pagina-publica-busca-input {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          min-height: 50px;
-          padding: 0 15px;
-          border: 1px solid #ddd;
-          border-radius: 15px;
-          background: #fafafa;
-        }
-
-        .pagina-publica-busca-input span {
-          font-size: 22px;
-          color: #777;
-        }
-
-        .pagina-publica-busca-input input {
+        .vitrine-cover-content {
+          position: relative;
+          z-index: 2;
           width: 100%;
-          border: 0;
-          outline: 0;
-          background: transparent;
-          font-size: 14px;
+          max-width: 1180px;
+          min-height: 430px;
+          margin: 0 auto;
+          padding: 32px 20px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          color: #fff;
         }
 
-        .pagina-publica-busca-input input:disabled {
-          cursor: not-allowed;
+        .vitrine-logo {
+          width: 86px;
+          height: 86px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 23px;
+          background: #fff;
+          margin-bottom: 17px;
+          box-shadow: 0 12px 32px rgba(0,0,0,.18);
         }
 
-        .pagina-publica-busca small {
-          display: block;
-          margin-top: 7px;
-          color: #999;
+        .vitrine-logo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .vitrine-logo > * {
+          max-width: 75%;
+          max-height: 75%;
+        }
+
+        .vitrine-cover-content h1 {
+          margin: 0;
+          font-size: clamp(30px,5vw,52px);
+          line-height: 1;
+          letter-spacing: -1.5px;
+        }
+
+        .vitrine-cover-content p {
+          margin: 10px 0 0;
+          color: rgba(255,255,255,.82);
+          font-size: 15px;
+        }
+
+        .vitrine-status {
+          width: fit-content;
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin-top: 16px;
+          padding: 8px 12px;
+          border: 1px solid rgba(255,255,255,.18);
+          border-radius: 999px;
+          background: rgba(255,255,255,.12);
           font-size: 11px;
+          font-weight: 700;
         }
 
-        .pagina-publica-secao {
-          padding: 26px 18px 0;
+        .vitrine-status span {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          background: #76dc91;
         }
 
-        .pagina-publica-secao-titulo {
+        .vitrine-container {
+          width: 100%;
+          max-width: 1180px;
+          margin: 0 auto;
+          padding: 36px 20px 70px;
+        }
+
+        .vitrine-intro {
           display: flex;
           align-items: flex-end;
           justify-content: space-between;
-          margin-bottom: 15px;
+          gap: 20px;
+          margin-bottom: 22px;
         }
 
-        .pagina-publica-etiqueta {
+        .vitrine-intro > div > span,
+        .vitrine-section-heading span,
+        .vitrine-about span,
+        .vitrine-location span {
           display: block;
-          margin-bottom: 5px;
-          color: #888;
+          margin-bottom: 6px;
+          color: #999;
           font-size: 10px;
-          font-weight: 700;
-          letter-spacing: 0.14em;
+          font-weight: 800;
+          letter-spacing: .12em;
+          text-transform: uppercase;
         }
 
-        .pagina-publica-secao h2,
-        .pagina-publica-sobre h2 {
+        .vitrine-intro h2,
+        .vitrine-section-heading h2,
+        .vitrine-about h2,
+        .vitrine-location h2 {
           margin: 0;
-          font-size: 22px;
-          line-height: 1.2;
+          font-size: 25px;
+          line-height: 1.15;
+          letter-spacing: -.5px;
         }
 
-        .pagina-publica-vazio {
-          padding: 28px 20px;
-          border: 1px dashed #d8d8d8;
-          border-radius: 18px;
-          text-align: center;
-          background: #fafafa;
+        .vitrine-whatsapp {
+          border: 0;
+          border-radius: 13px;
+          padding: 12px 16px;
+          background: #222;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
         }
 
-        .pagina-publica-vazio-menor {
-          padding: 22px 18px;
-          text-align: left;
-        }
-
-        .pagina-publica-vazio-icone {
-          width: 42px;
-          height: 42px;
+        .vitrine-search {
           display: flex;
           align-items: center;
-          justify-content: center;
-          margin: 0 auto 12px;
-          border-radius: 50%;
-          background: #ededed;
-          color: #777;
-          font-size: 22px;
+          gap: 11px;
+          padding: 0 15px;
+          height: 54px;
+          border: 1px solid #e6e6e3;
+          border-radius: 16px;
+          background: #fafaf8;
+          margin-bottom: 36px;
         }
 
-        .pagina-publica-vazio strong {
-          display: block;
-          font-size: 14px;
-        }
-
-        .pagina-publica-vazio p {
-          max-width: 420px;
-          margin: 7px auto 0;
+        .vitrine-search > span {
           color: #888;
-          font-size: 13px;
-          line-height: 1.5;
+          font-size: 22px;
         }
 
-        .pagina-publica-sobre {
-          margin: 30px 18px 0;
-          padding: 24px 20px;
-          border-radius: 18px;
-          background: #f6f6f6;
-        }
-
-        .pagina-publica-sobre p {
-          margin: 13px 0 0;
-          color: #666;
+        .vitrine-search input {
+          width: 100%;
+          height: 100%;
+          border: 0;
+          outline: 0;
+          background: transparent;
+          color: #222;
           font-size: 14px;
-          line-height: 1.65;
         }
 
-        .pagina-publica-info-card {
+        .vitrine-search input::placeholder {
+          color: #aaa;
+        }
+
+        .vitrine-search button {
+          width: 30px;
+          height: 30px;
+          border: 0;
+          border-radius: 50%;
+          background: #e9e9e6;
+          color: #555;
+          cursor: pointer;
+          font-size: 18px;
+        }
+
+        .vitrine-categorias,
+        .vitrine-section {
+          margin-bottom: 44px;
+        }
+
+        .vitrine-section-heading {
           display: flex;
-          align-items: flex-start;
-          gap: 14px;
-          padding: 18px;
-          border: 1px solid #e8e8e8;
-          border-radius: 17px;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 18px;
         }
 
-        .pagina-publica-info-icone {
-          width: 40px;
-          height: 40px;
-          flex: 0 0 auto;
+        .vitrine-section-heading > small {
+          color: #999;
+          font-size: 12px;
+        }
+
+        .vitrine-category-list {
+          display: flex;
+          gap: 14px;
+          overflow-x: auto;
+          padding: 2px 2px 8px;
+          scrollbar-width: none;
+        }
+
+        .vitrine-category-list::-webkit-scrollbar {
+          display: none;
+        }
+
+        .vitrine-category {
+          min-width: 92px;
+          border: 0;
+          background: transparent;
+          padding: 0;
+          cursor: pointer;
+          text-align: center;
+        }
+
+        .vitrine-category-image {
+          width: 78px;
+          height: 78px;
+          margin: 0 auto 9px;
+          overflow: hidden;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: 12px;
-          background: #f0f0f0;
-          font-size: 20px;
-        }
-
-        .pagina-publica-info-card strong {
-          display: block;
+          border-radius: 22px;
+          background: #f2f2ef;
+          color: #777;
           font-size: 14px;
+          font-weight: 700;
+          border: 2px solid transparent;
         }
 
-        .pagina-publica-info-card p {
-          margin: 5px 0 4px;
+        .vitrine-category-image img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .vitrine-category strong {
+          display: block;
           color: #555;
+          font-size: 11px;
+          line-height: 1.3;
+        }
+
+        .vitrine-category.active
+          .vitrine-category-image {
+          border-color: #222;
+        }
+
+        .vitrine-category.active strong {
+          color: #222;
+        }
+
+        .vitrine-product-grid {
+          display: grid;
+          grid-template-columns: repeat(4,minmax(0,1fr));
+          gap: 16px;
+        }
+
+        .vitrine-product-card {
+          min-width: 0;
+          padding: 0;
+          border: 1px solid #e9e9e6;
+          border-radius: 20px;
+          overflow: hidden;
+          background: #fff;
+          text-align: left;
+          cursor: pointer;
+          transition:
+            transform .18s ease,
+            box-shadow .18s ease;
+        }
+
+        .vitrine-product-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 28px rgba(0,0,0,.07);
+        }
+
+        .vitrine-product-image {
+          position: relative;
+          aspect-ratio: 1 / 1;
+          overflow: hidden;
+          background: #f1f1ee;
+        }
+
+        .vitrine-product-image > img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .vitrine-product-placeholder {
+          width: 100%;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(
+            135deg,
+            #eeeeeb,
+            #dededb
+          );
+        }
+
+        .vitrine-product-placeholder span {
+          font-size: 42px;
+          font-weight: 800;
+          color: #aaa;
+        }
+
+        .vitrine-product-info {
+          padding: 15px;
+        }
+
+        .vitrine-product-info > strong {
+          display: block;
+          color: #252525;
+          font-size: 14px;
+          line-height: 1.3;
+        }
+
+        .vitrine-product-info > p {
+          margin: 6px 0 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          color: #999;
+          font-size: 11px;
+          line-height: 1.4;
+        }
+
+        .vitrine-product-price {
+          display: flex;
+          align-items: baseline;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 12px;
+        }
+
+        .vitrine-product-price small {
+          color: #aaa;
+          text-decoration: line-through;
+          font-size: 10px;
+        }
+
+        .vitrine-product-price strong {
+          color: #222;
+          font-size: 16px;
+        }
+
+        .vitrine-product-price span {
+          color: #999;
+          font-size: 10px;
+        }
+
+        .vitrine-empty {
+          padding: 55px 20px;
+          border: 1px dashed #ddd;
+          border-radius: 22px;
+          text-align: center;
+          background: #fafaf8;
+        }
+
+        .vitrine-empty > div {
+          font-size: 34px;
+          color: #aaa;
+        }
+
+        .vitrine-empty h3 {
+          margin: 13px 0 7px;
+          font-size: 17px;
+        }
+
+        .vitrine-empty p {
+          max-width: 400px;
+          margin: 0 auto 16px;
+          color: #999;
+          font-size: 12px;
+          line-height: 1.5;
+        }
+
+        .vitrine-empty button {
+          border: 0;
+          border-radius: 11px;
+          background: #222;
+          color: #fff;
+          padding: 10px 14px;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .vitrine-about {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 30px;
+          padding: 28px;
+          border-radius: 22px;
+          background: #f7f7f4;
+          margin-bottom: 20px;
+        }
+
+        .vitrine-about p {
+          max-width: 600px;
+          margin: 10px 0 0;
+          color: #777;
+          font-size: 13px;
+          line-height: 1.6;
+        }
+
+        .vitrine-contact-buttons {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .vitrine-contact-buttons button,
+        .vitrine-contact-buttons a {
+          border: 1px solid #ddd;
+          border-radius: 12px;
+          padding: 11px 14px;
+          background: #fff;
+          color: #222;
+          text-decoration: none;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: pointer;
+        }
+
+        .vitrine-location {
+          padding: 25px;
+          border: 1px solid #e9e9e6;
+          border-radius: 22px;
+        }
+
+        .vitrine-location p {
+          margin: 10px 0 0;
+          color: #777;
           font-size: 13px;
           line-height: 1.5;
         }
 
-        .pagina-publica-info-card small {
+        .vitrine-footer {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 8px;
+          padding: 28px 20px 45px;
           color: #999;
           font-size: 11px;
         }
 
-        .pagina-publica-contatos {
-          display: flex;
-          flex-direction: column;
-          gap: 9px;
+        .vitrine-footer strong {
+          color: #444;
         }
 
-        .pagina-publica-contato {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 13px;
-          padding: 15px;
-          border: 1px solid #e7e7e7;
-          border-radius: 15px;
-          background: #fff;
-          color: #222;
-          text-align: left;
-          text-decoration: none;
-          cursor: pointer;
-        }
-
-        .pagina-publica-contato > span {
-          width: 38px;
-          height: 38px;
-          flex: 0 0 auto;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 11px;
-          background: #f1f1f1;
-        }
-
-        .pagina-publica-contato div {
-          flex: 1;
-        }
-
-        .pagina-publica-contato strong,
-        .pagina-publica-contato small {
-          display: block;
-        }
-
-        .pagina-publica-contato strong {
-          font-size: 14px;
-        }
-
-        .pagina-publica-contato small {
-          margin-top: 3px;
-          color: #888;
-          font-size: 12px;
-        }
-
-        .pagina-publica-contato b {
-          color: #888;
-          font-size: 18px;
-        }
-
-        .pagina-publica-contato-principal {
-          border-color: #222;
-          background: #222;
-          color: #fff;
-        }
-
-        .pagina-publica-contato-principal > span {
-          background: rgba(255, 255, 255, 0.12);
-        }
-
-        .pagina-publica-contato-principal small,
-        .pagina-publica-contato-principal b {
-          color: rgba(255, 255, 255, 0.7);
-        }
-
-        .pagina-publica-compartilhar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 18px;
-          margin: 30px 18px 0;
-          padding: 20px;
-          border-radius: 18px;
-          background: #222;
-          color: #fff;
-        }
-
-        .pagina-publica-compartilhar strong {
-          display: block;
-          font-size: 14px;
-        }
-
-        .pagina-publica-compartilhar p {
-          margin: 5px 0 0;
-          color: #bbb;
-          font-size: 12px;
-        }
-
-        .pagina-publica-compartilhar button {
-          flex: 0 0 auto;
-          padding: 10px 14px;
-          border: 0;
-          border-radius: 10px;
-          background: #fff;
-          color: #222;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-        }
-
-        .pagina-publica-footer {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 5px;
-          padding: 34px 18px 28px;
-          color: #aaa;
-          font-size: 11px;
-        }
-
-        .pagina-publica-footer strong {
-          color: #777;
-        }
-
-        @media (min-width: 761px) {
-          .pagina-publica {
-            padding: 20px 0;
-          }
-
-          .pagina-publica-container {
-            border-radius: 22px;
-            overflow: hidden;
-            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.08);
+        @media (max-width:800px) {
+          .vitrine-product-grid {
+            grid-template-columns: repeat(3,minmax(0,1fr));
           }
         }
 
-        @media (max-width: 480px) {
-          .pagina-publica-capa,
-          .pagina-publica-capa-conteudo {
-            min-height: 330px;
+        @media (max-width:620px) {
+          .vitrine-cover,
+          .vitrine-cover-content {
+            min-height: 360px;
           }
 
-          .pagina-publica-compartilhar {
-            align-items: flex-start;
+          .vitrine-container {
+            padding: 28px 14px 55px;
+          }
+
+          .vitrine-intro {
+            align-items: stretch;
             flex-direction: column;
           }
 
-          .pagina-publica-compartilhar button {
+          .vitrine-whatsapp {
             width: 100%;
+          }
+
+          .vitrine-product-grid {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: 10px;
+          }
+
+          .vitrine-product-info {
+            padding: 12px;
+          }
+
+          .vitrine-product-info > strong {
+            font-size: 13px;
+          }
+
+          .vitrine-product-price strong {
+            font-size: 14px;
+          }
+
+          .vitrine-about {
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 22px;
+          }
+
+          .vitrine-contact-buttons {
+            width: 100%;
+          }
+
+          .vitrine-contact-buttons button,
+          .vitrine-contact-buttons a {
+            flex: 1;
+            text-align: center;
+          }
+        }
+
+        @media (max-width:420px) {
+          .vitrine-product-grid {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+          }
+
+          .vitrine-product-info > p {
+            display: none;
+          }
+
+          .vitrine-cover-content {
+            padding: 24px 16px;
+          }
+
+          .vitrine-cover-content h1 {
+            font-size: 31px;
           }
         }
       `}</style>
-    </main>
+    </div>
   )
 }
-
-export default PaginaPublicaNegocioPage
