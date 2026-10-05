@@ -6,6 +6,7 @@ interface NegocioPageProps {
   empresaId: string
   onSair: () => void
   onAbrirVitrine: () => void
+  onAbrirProdutos: () => void
 }
 
 interface Empresa {
@@ -45,6 +46,7 @@ export default function NegocioPage({
   empresaId,
   onSair,
   onAbrirVitrine,
+  onAbrirProdutos,
 }: NegocioPageProps) {
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [filial, setFilial] = useState<Filial | null>(null)
@@ -56,60 +58,70 @@ export default function NegocioPage({
       setCarregando(true)
 
       try {
-        const { data: empresaData, error: empresaError } = await supabase
-          .from('empresas')
-          .select(`
-            id,
-            nome_fantasia,
-            razao_social,
-            documento,
-            slug,
-            email,
-            telefone,
-            whatsapp,
-            logo_url,
-            banner_url,
-            cidade,
-            estado,
-            status
-          `)
-          .eq('id', empresaId)
-          .single()
+        const { data: empresaData, error: empresaError } =
+          await supabase
+            .from('empresas')
+            .select(`
+              id,
+              nome_fantasia,
+              razao_social,
+              documento,
+              slug,
+              email,
+              telefone,
+              whatsapp,
+              logo_url,
+              banner_url,
+              cidade,
+              estado,
+              status
+            `)
+            .eq('id', empresaId)
+            .single()
 
         if (empresaError) {
-          console.error('Erro ao carregar empresa:', empresaError)
+          console.error(
+            'Erro ao carregar empresa:',
+            empresaError
+          )
           setEmpresa(null)
           return
         }
 
         setEmpresa(empresaData as Empresa)
 
-        const { data: filialData, error: filialError } = await supabase
-          .from('filiais')
-          .select(`
-            id,
-            empresa_id,
-            nome,
-            codigo,
-            telefone,
-            whatsapp,
-            cep,
-            logradouro,
-            numero,
-            complemento,
-            bairro,
-            cidade,
-            estado,
-            ativa
-          `)
-          .eq('empresa_id', empresaId)
-          .eq('ativa', true)
-          .order('created_at', { ascending: true })
-          .limit(1)
-          .maybeSingle()
+        const { data: filialData, error: filialError } =
+          await supabase
+            .from('filiais')
+            .select(`
+              id,
+              empresa_id,
+              nome,
+              codigo,
+              telefone,
+              whatsapp,
+              cep,
+              logradouro,
+              numero,
+              complemento,
+              bairro,
+              cidade,
+              estado,
+              ativa
+            `)
+            .eq('empresa_id', empresaId)
+            .eq('ativa', true)
+            .order('created_at', {
+              ascending: true,
+            })
+            .limit(1)
+            .maybeSingle()
 
         if (filialError) {
-          console.error('Erro ao carregar unidade:', filialError)
+          console.error(
+            'Erro ao carregar unidade:',
+            filialError
+          )
           setFilial(null)
           return
         }
@@ -122,28 +134,6 @@ export default function NegocioPage({
 
     carregarNegocio()
   }, [empresaId])
-
-  function formatarWhatsApp(numero: string | null) {
-    if (!numero) return ''
-
-    const apenasNumeros = numero.replace(/\D/g, '')
-
-    if (apenasNumeros.length === 13) {
-      return `(${apenasNumeros.slice(2, 4)}) ${apenasNumeros.slice(
-        4,
-        9
-      )}-${apenasNumeros.slice(9)}`
-    }
-
-    if (apenasNumeros.length === 11) {
-      return `(${apenasNumeros.slice(0, 2)}) ${apenasNumeros.slice(
-        2,
-        7
-      )}-${apenasNumeros.slice(7)}`
-    }
-
-    return numero
-  }
 
   function enderecoCompleto() {
     if (!filial) return ''
@@ -201,7 +191,6 @@ export default function NegocioPage({
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
             gap: 16px;
             text-align: center;
           }
@@ -218,7 +207,7 @@ export default function NegocioPage({
             border: 3px solid #e8e8e8;
             border-top-color: #222;
             border-radius: 50%;
-            animation: negocioSpin 0.8s linear infinite;
+            animation: negocioSpin .8s linear infinite;
           }
 
           @keyframes negocioSpin {
@@ -270,31 +259,18 @@ export default function NegocioPage({
             border-radius: 24px;
             padding: 32px 24px;
             text-align: center;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 12px 40px rgba(0,0,0,.06);
           }
 
           .negocio-error-card h1 {
             margin: 28px 0 10px;
             font-size: 24px;
-            color: #222;
           }
 
           .negocio-error-card p {
             margin: 0 0 24px;
             color: #777;
             line-height: 1.5;
-          }
-
-          .negocio-primary-button {
-            width: 100%;
-            border: 0;
-            border-radius: 14px;
-            padding: 14px 18px;
-            background: #222;
-            color: #fff;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
           }
         `}</style>
       </div>
@@ -372,7 +348,10 @@ export default function NegocioPage({
               <h1>{empresa.nome_fantasia}</h1>
 
               <p>
-                {filial?.cidade || empresa.cidade || 'Seu negócio no digital'}
+                {filial?.cidade ||
+                  empresa.cidade ||
+                  'Seu negócio no digital'}
+
                 {filial?.estado || empresa.estado
                   ? `, ${filial?.estado || empresa.estado}`
                   : ''}
@@ -388,15 +367,18 @@ export default function NegocioPage({
 
         <section className="negocio-welcome">
           <div>
-            <span className="negocio-eyebrow">Seu negócio</span>
+            <span className="negocio-eyebrow">
+              Seu negócio
+            </span>
 
             <h2>
-              Vamos deixar sua presença digital pronta para seus clientes.
+              Vamos deixar sua presença digital pronta para
+              seus clientes.
             </h2>
 
             <p>
-              Aqui você organiza as informações do negócio e prepara sua
-              vitrine para aparecer no Organiza.
+              Aqui você organiza as informações do negócio,
+              seus produtos e prepara sua vitrine.
             </p>
           </div>
 
@@ -412,19 +394,30 @@ export default function NegocioPage({
         <section className="negocio-section">
           <div className="negocio-section-heading">
             <div>
-              <span className="negocio-eyebrow">Primeiros passos</span>
+              <span className="negocio-eyebrow">
+                Primeiros passos
+              </span>
+
               <h2>Deixe seu negócio completo</h2>
             </div>
 
-            <span className="negocio-progress">0/5</span>
+            <span className="negocio-progress">
+              0/5
+            </span>
           </div>
 
           <div className="negocio-checklist">
-            <button type="button" className="negocio-check-item">
-              <span className="negocio-check-icon">✓</span>
+            <button
+              type="button"
+              className="negocio-check-item"
+            >
+              <span className="negocio-check-icon">
+                ✓
+              </span>
 
               <span className="negocio-check-content">
                 <strong>Dados principais</strong>
+
                 <small>
                   Nome, contato e informações do negócio
                 </small>
@@ -433,37 +426,57 @@ export default function NegocioPage({
               <span className="negocio-arrow">›</span>
             </button>
 
-            <button type="button" className="negocio-check-item">
-              <span className="negocio-check-icon">✓</span>
+            <button
+              type="button"
+              className="negocio-check-item"
+            >
+              <span className="negocio-check-icon">
+                ✓
+              </span>
 
               <span className="negocio-check-content">
                 <strong>Endereço</strong>
+
                 <small>
-                  Informe onde seus clientes podem encontrar você
+                  Informe onde seus clientes podem encontrar
+                  você
                 </small>
               </span>
 
               <span className="negocio-arrow">›</span>
             </button>
 
-            <button type="button" className="negocio-check-item">
-              <span className="negocio-check-icon">✓</span>
+            <button
+              type="button"
+              className="negocio-check-item"
+            >
+              <span className="negocio-check-icon">
+                ✓
+              </span>
 
               <span className="negocio-check-content">
                 <strong>Adicionar logo</strong>
+
                 <small>
-                  Deixe sua vitrine com a identidade do seu negócio
+                  Deixe sua vitrine com a identidade do seu
+                  negócio
                 </small>
               </span>
 
               <span className="negocio-arrow">›</span>
             </button>
 
-            <button type="button" className="negocio-check-item">
-              <span className="negocio-check-icon">✓</span>
+            <button
+              type="button"
+              className="negocio-check-item"
+            >
+              <span className="negocio-check-icon">
+                ✓
+              </span>
 
               <span className="negocio-check-content">
                 <strong>Personalizar sua vitrine</strong>
+
                 <small>
                   Escolha como seu negócio será apresentado
                 </small>
@@ -472,11 +485,20 @@ export default function NegocioPage({
               <span className="negocio-arrow">›</span>
             </button>
 
-            <button type="button" className="negocio-check-item">
-              <span className="negocio-check-icon">✓</span>
+            <button
+              type="button"
+              className="negocio-check-item"
+              onClick={onAbrirProdutos}
+            >
+              <span className="negocio-check-icon">
+                ✓
+              </span>
 
               <span className="negocio-check-content">
-                <strong>Cadastrar produtos ou serviços</strong>
+                <strong>
+                  Cadastrar produtos ou serviços
+                </strong>
+
                 <small>
                   Comece a montar o que você oferece
                 </small>
@@ -490,7 +512,10 @@ export default function NegocioPage({
         <section className="negocio-section">
           <div className="negocio-section-heading">
             <div>
-              <span className="negocio-eyebrow">Acesso rápido</span>
+              <span className="negocio-eyebrow">
+                Acesso rápido
+              </span>
+
               <h2>Organize seu negócio</h2>
             </div>
           </div>
@@ -499,37 +524,62 @@ export default function NegocioPage({
             <button
               type="button"
               className="negocio-action"
+              onClick={onAbrirProdutos}
             >
-              <span className="negocio-action-icon">▦</span>
+              <span className="negocio-action-icon">
+                ▦
+              </span>
+
               <strong>Produtos e serviços</strong>
-              <small>Cadastre o que você oferece</small>
+
+              <small>
+                Cadastre o que você oferece
+              </small>
             </button>
 
             <button
               type="button"
               className="negocio-action"
             >
-              <span className="negocio-action-icon">♙</span>
+              <span className="negocio-action-icon">
+                ♙
+              </span>
+
               <strong>Clientes</strong>
-              <small>Organize seus clientes</small>
+
+              <small>
+                Organize seus clientes
+              </small>
             </button>
 
             <button
               type="button"
               className="negocio-action"
             >
-              <span className="negocio-action-icon">▤</span>
+              <span className="negocio-action-icon">
+                ▤
+              </span>
+
               <strong>Estoque</strong>
-              <small>Acompanhe seus produtos</small>
+
+              <small>
+                Acompanhe seus produtos
+              </small>
             </button>
 
             <button
               type="button"
               className="negocio-action"
             >
-              <span className="negocio-action-icon">R$</span>
+              <span className="negocio-action-icon">
+                R$
+              </span>
+
               <strong>Vendas</strong>
-              <small>Acompanhe suas vendas</small>
+
+              <small>
+                Acompanhe suas vendas
+              </small>
             </button>
 
             <button
@@ -537,9 +587,15 @@ export default function NegocioPage({
               className="negocio-action negocio-vitrine-action"
               onClick={onAbrirVitrine}
             >
-              <span className="negocio-action-icon">◉</span>
+              <span className="negocio-action-icon">
+                ◉
+              </span>
+
               <strong>Minha vitrine</strong>
-              <small>Veja como seus clientes verão</small>
+
+              <small>
+                Veja como seus clientes verão
+              </small>
             </button>
           </div>
         </section>
@@ -547,13 +603,18 @@ export default function NegocioPage({
         <section className="negocio-section">
           <div className="negocio-section-heading">
             <div>
-              <span className="negocio-eyebrow">Unidade</span>
+              <span className="negocio-eyebrow">
+                Unidade
+              </span>
+
               <h2>Seu endereço</h2>
             </div>
           </div>
 
           <div className="negocio-unit-card">
-            <div className="negocio-unit-icon">⌂</div>
+            <div className="negocio-unit-icon">
+              ⌂
+            </div>
 
             <div className="negocio-unit-content">
               <strong>
@@ -563,11 +624,15 @@ export default function NegocioPage({
               {enderecoCompleto() ? (
                 <p>{enderecoCompleto()}</p>
               ) : (
-                <p>Endereço ainda não informado.</p>
+                <p>
+                  Endereço ainda não informado.
+                </p>
               )}
 
               {filial?.cep && (
-                <span>CEP: {filial.cep}</span>
+                <span>
+                  CEP: {filial.cep}
+                </span>
               )}
             </div>
           </div>
@@ -575,7 +640,9 @@ export default function NegocioPage({
 
         <section className="negocio-vitrine-cta">
           <div>
-            <span className="negocio-eyebrow">Organiza</span>
+            <span className="negocio-eyebrow">
+              Organiza
+            </span>
 
             <h2>
               Sua porta pode estar fechada.
@@ -584,8 +651,8 @@ export default function NegocioPage({
             </h2>
 
             <p>
-              Mostre seu negócio para seus clientes mesmo quando você não
-              estiver atendendo.
+              Mostre seu negócio para seus clientes mesmo
+              quando você não estiver atendendo.
             </p>
           </div>
 
@@ -611,6 +678,7 @@ export default function NegocioPage({
         <button
           type="button"
           className="negocio-nav-button"
+          onClick={onAbrirProdutos}
         >
           <span>▦</span>
           <small>Produtos</small>
@@ -642,11 +710,16 @@ export default function NegocioPage({
         >
           <div
             className="negocio-menu"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) =>
+              event.stopPropagation()
+            }
           >
             <div className="negocio-menu-header">
               <div>
-                <span className="negocio-eyebrow">Menu</span>
+                <span className="negocio-eyebrow">
+                  Menu
+                </span>
+
                 <h2>{empresa.nome_fantasia}</h2>
               </div>
 
@@ -665,40 +738,82 @@ export default function NegocioPage({
               className="negocio-menu-item"
               onClick={() => {
                 setMenuAberto(false)
+                onAbrirProdutos()
+              }}
+            >
+              <span>▦</span>
+
+              <div>
+                <strong>
+                  Produtos e serviços
+                </strong>
+
+                <small>
+                  Cadastre e organize seus produtos
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
                 onAbrirVitrine()
               }}
             >
               <span>◉</span>
+
               <div>
                 <strong>Minha vitrine</strong>
-                <small>Visualizar como cliente</small>
+
+                <small>
+                  Visualizar como cliente
+                </small>
               </div>
+
               <b>›</b>
             </button>
 
             <button
               type="button"
               className="negocio-menu-item"
-              onClick={() => setMenuAberto(false)}
+              onClick={() =>
+                setMenuAberto(false)
+              }
             >
               <span>⚙</span>
+
               <div>
                 <strong>Configurações</strong>
-                <small>Configure seu negócio</small>
+
+                <small>
+                  Configure seu negócio
+                </small>
               </div>
+
               <b>›</b>
             </button>
 
             <button
               type="button"
               className="negocio-menu-item"
-              onClick={() => setMenuAberto(false)}
+              onClick={() =>
+                setMenuAberto(false)
+              }
             >
               <span>?</span>
+
               <div>
                 <strong>Ajuda</strong>
-                <small>Encontre respostas e orientações</small>
+
+                <small>
+                  Encontre respostas e orientações
+                </small>
               </div>
+
               <b>›</b>
             </button>
 
@@ -713,7 +828,10 @@ export default function NegocioPage({
 
               <div>
                 <strong>Sair</strong>
-                <small>Encerrar esta sessão</small>
+
+                <small>
+                  Encerrar acesso ao negócio
+                </small>
               </div>
 
               <b>›</b>
@@ -723,32 +841,28 @@ export default function NegocioPage({
       )}
 
       <style>{`
-        * {
-          box-sizing: border-box;
-        }
-
         .negocio-page {
           min-height: 100vh;
+          padding-bottom: 80px;
           background: #f7f7f5;
           color: #222;
-          font-family: Arial, Helvetica, sans-serif;
-          padding-bottom: 90px;
+          font-family: Arial, sans-serif;
         }
 
         .negocio-topbar {
           position: sticky;
           top: 0;
-          z-index: 30;
-          background: rgba(255, 255, 255, 0.96);
+          z-index: 40;
+          background: rgba(255,255,255,.96);
           backdrop-filter: blur(12px);
-          border-bottom: 1px solid #ececea;
+          border-bottom: 1px solid #e7e7e5;
         }
 
         .negocio-topbar-inner {
           width: 100%;
           max-width: 1180px;
-          margin: 0 auto;
           min-height: 72px;
+          margin: 0 auto;
           padding: 12px 20px;
           display: flex;
           align-items: center;
@@ -817,7 +931,6 @@ export default function NegocioPage({
           align-items: center;
           gap: 4px;
           cursor: pointer;
-          flex-shrink: 0;
         }
 
         .negocio-menu-button span {
@@ -856,8 +969,8 @@ export default function NegocioPage({
           inset: 0;
           background: linear-gradient(
             to bottom,
-            rgba(0, 0, 0, 0.04),
-            rgba(0, 0, 0, 0.62)
+            rgba(0,0,0,.04),
+            rgba(0,0,0,.62)
           );
         }
 
@@ -893,7 +1006,7 @@ export default function NegocioPage({
           justify-content: center;
           background: #fff;
           margin-bottom: 16px;
-          box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+          box-shadow: 0 10px 30px rgba(0,0,0,.15);
         }
 
         .negocio-logo-large img {
@@ -909,14 +1022,14 @@ export default function NegocioPage({
 
         .negocio-hero-text h1 {
           margin: 0;
-          font-size: clamp(28px, 5vw, 46px);
+          font-size: clamp(28px,5vw,46px);
           line-height: 1.05;
           letter-spacing: -1.2px;
         }
 
         .negocio-hero-text p {
           margin: 9px 0 0;
-          color: rgba(255, 255, 255, 0.82);
+          color: rgba(255,255,255,.82);
           font-size: 15px;
         }
 
@@ -928,8 +1041,8 @@ export default function NegocioPage({
           gap: 8px;
           padding: 8px 12px;
           border-radius: 999px;
-          background: rgba(255, 255, 255, 0.14);
-          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: rgba(255,255,255,.14);
+          border: 1px solid rgba(255,255,255,.18);
           font-size: 12px;
           font-weight: 700;
         }
@@ -959,7 +1072,7 @@ export default function NegocioPage({
           color: #999;
           font-size: 11px;
           font-weight: 800;
-          letter-spacing: 0.12em;
+          letter-spacing: .12em;
           text-transform: uppercase;
         }
 
@@ -968,7 +1081,7 @@ export default function NegocioPage({
           margin: 0;
           font-size: 24px;
           line-height: 1.2;
-          letter-spacing: -0.5px;
+          letter-spacing: -.5px;
         }
 
         .negocio-welcome p {
@@ -1021,7 +1134,7 @@ export default function NegocioPage({
 
         .negocio-checklist {
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(2,minmax(0,1fr));
           gap: 10px;
         }
 
@@ -1078,7 +1191,7 @@ export default function NegocioPage({
 
         .negocio-actions-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(3,minmax(0,1fr));
           gap: 12px;
         }
 
@@ -1095,14 +1208,12 @@ export default function NegocioPage({
           background: #fff;
           text-align: left;
           cursor: pointer;
-          transition:
-            transform 0.18s ease,
-            box-shadow 0.18s ease;
+          transition: transform .18s ease, box-shadow .18s ease;
         }
 
         .negocio-action:hover {
           transform: translateY(-2px);
-          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 12px 28px rgba(0,0,0,.06);
         }
 
         .negocio-action-icon {
@@ -1121,7 +1232,6 @@ export default function NegocioPage({
 
         .negocio-action strong {
           font-size: 14px;
-          color: #292929;
         }
 
         .negocio-action small {
@@ -1197,7 +1307,7 @@ export default function NegocioPage({
           margin: 0;
           font-size: 25px;
           line-height: 1.2;
-          letter-spacing: -0.5px;
+          letter-spacing: -.5px;
         }
 
         .negocio-vitrine-cta p {
@@ -1225,7 +1335,7 @@ export default function NegocioPage({
           justify-content: center;
           gap: 4px;
           padding: 6px 10px;
-          background: rgba(255, 255, 255, 0.97);
+          background: rgba(255,255,255,.97);
           backdrop-filter: blur(12px);
           border-top: 1px solid #e7e7e5;
         }
@@ -1266,22 +1376,22 @@ export default function NegocioPage({
           z-index: 100;
           display: flex;
           justify-content: flex-end;
-          background: rgba(0, 0, 0, 0.38);
+          background: rgba(0,0,0,.38);
         }
 
         .negocio-menu {
-          width: min(420px, 100%);
+          width: min(420px,100%);
           height: 100%;
           padding: 26px 20px;
           background: #fff;
           overflow-y: auto;
-          animation: negocioMenuIn 0.2s ease;
+          animation: negocioMenuIn .2s ease;
         }
 
         @keyframes negocioMenuIn {
           from {
             transform: translateX(30px);
-            opacity: 0.7;
+            opacity: .7;
           }
 
           to {
@@ -1301,7 +1411,6 @@ export default function NegocioPage({
         .negocio-menu-header h2 {
           margin: 0;
           font-size: 22px;
-          line-height: 1.2;
         }
 
         .negocio-menu-close {
@@ -1310,7 +1419,6 @@ export default function NegocioPage({
           border: 1px solid #e5e5e2;
           border-radius: 12px;
           background: #fff;
-          color: #222;
           font-size: 24px;
           cursor: pointer;
         }
@@ -1350,7 +1458,6 @@ export default function NegocioPage({
 
         .negocio-menu-item strong {
           font-size: 14px;
-          color: #222;
         }
 
         .negocio-menu-item small {
@@ -1381,7 +1488,7 @@ export default function NegocioPage({
           color: #a33;
         }
 
-        @media (max-width: 760px) {
+        @media (max-width:760px) {
           .negocio-main {
             padding: 14px 14px 28px;
           }
@@ -1411,7 +1518,7 @@ export default function NegocioPage({
           }
 
           .negocio-actions-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(2,minmax(0,1fr));
           }
 
           .negocio-vitrine-cta {
@@ -1424,7 +1531,7 @@ export default function NegocioPage({
           }
         }
 
-        @media (max-width: 480px) {
+        @media (max-width:480px) {
           .negocio-topbar-inner {
             padding: 10px 14px;
           }
