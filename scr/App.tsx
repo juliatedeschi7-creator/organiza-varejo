@@ -5,6 +5,7 @@ import InicioPage from './pages/InicioPage'
 import CadastrarNegocioPage from './pages/CadastrarNegocioPage'
 import NegocioPage from './pages/NegocioPage'
 import PaginaPublicaNegocioPage from './pages/PaginaPublicaNegocioPage'
+import ProdutosPage from './pages/ProdutosPage'
 
 type Page =
   | 'login'
@@ -12,6 +13,7 @@ type Page =
   | 'inicio'
   | 'cadastrar-negocio'
   | 'negocio'
+  | 'produtos'
   | 'pagina-publica'
 
 function App() {
@@ -54,6 +56,23 @@ function App() {
         onAbrirVitrine={() => {
           setPage('pagina-publica')
         }}
+        onAbrirProdutos={() => {
+          setPage('produtos')
+        }}
+      />
+    )
+  }
+
+  if (page === 'produtos') {
+    if (!empresaId) {
+      setPage('inicio')
+      return null
+    }
+
+    return (
+      <ProdutosPage
+        empresaId={empresaId}
+        onVoltar={() => setPage('negocio')}
       />
     )
   }
