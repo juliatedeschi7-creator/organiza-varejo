@@ -1,14 +1,6 @@
-import {
-  ArrowLeft,
-  Check,
-  Loader2,
-  Mail,
-  Phone,
-  Save,
-  Store,
-} from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '../lib/supabase'
+import { ArrowLeft, Save, Building2, MapPin, FileText } from 'lucide-react'
 
 interface EditarEmpresaPageProps {
   empresaId: string
@@ -16,57 +8,241 @@ interface EditarEmpresaPageProps {
 }
 
 interface Empresa {
-  id: string
-  razao_social: string | null
-  nome_fantasia: string | null
-  documento: string | null
-  email: string | null
-  telefone: string | null
-  whatsapp: string | null
-  cidade: string | null
-  estado: string | null
-  descricao_publica: string | null
+  razao_social: string
+  nome_fantasia: string
+  documento: string
+  slug: string
+  email: string
+  telefone: string
+  whatsapp: string
+  cidade: string
+  estado: string
+  descricao_publica: string
+}
+
+const estilos: Record<string, CSSProperties> = {
+  pagina: {
+    minHeight: '100vh',
+    background: '#f7f7f5',
+    padding: '24px 16px 50px',
+    color: '#222',
+  },
+
+  container: {
+    width: '100%',
+    maxWidth: '900px',
+    margin: '0 auto',
+  },
+
+  topo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    marginBottom: '28px',
+  },
+
+  botaoVoltar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '42px',
+    height: '42px',
+    borderRadius: '12px',
+    border: '1px solid #deded8',
+    background: '#fff',
+    color: '#333',
+    cursor: 'pointer',
+    flexShrink: 0,
+  },
+
+  tituloArea: {
+    flex: 1,
+  },
+
+  titulo: {
+    margin: 0,
+    fontSize: '26px',
+    fontWeight: 700,
+    letterSpacing: '-0.5px',
+  },
+
+  subtitulo: {
+    margin: '5px 0 0',
+    color: '#777',
+    fontSize: '14px',
+  },
+
+  card: {
+    background: '#fff',
+    border: '1px solid #e7e7e2',
+    borderRadius: '18px',
+    padding: '24px',
+    marginBottom: '18px',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
+  },
+
+  tituloSecao: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    margin: '0 0 20px',
+    fontSize: '18px',
+    fontWeight: 700,
+  },
+
+  iconeSecao: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '36px',
+    height: '36px',
+    borderRadius: '10px',
+    background: '#f1f1ed',
+    color: '#333',
+  },
+
+  grade: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+    gap: '18px',
+  },
+
+  campo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '7px',
+  },
+
+  campoLargo: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '7px',
+    marginTop: '18px',
+  },
+
+  label: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#444',
+  },
+
+  input: {
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #dcdcd6',
+    borderRadius: '10px',
+    padding: '12px 13px',
+    fontSize: '15px',
+    outline: 'none',
+    background: '#fff',
+    color: '#222',
+  },
+
+  textarea: {
+    width: '100%',
+    boxSizing: 'border-box',
+    border: '1px solid #dcdcd6',
+    borderRadius: '10px',
+    padding: '12px 13px',
+    fontSize: '15px',
+    outline: 'none',
+    background: '#fff',
+    color: '#222',
+    minHeight: '120px',
+    resize: 'vertical',
+    fontFamily: 'inherit',
+  },
+
+  ajuda: {
+    margin: '2px 0 0',
+    fontSize: '12px',
+    color: '#888',
+    lineHeight: 1.4,
+  },
+
+  rodape: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: '12px',
+    marginTop: '10px',
+  },
+
+  botaoSalvar: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '8px',
+    border: 'none',
+    borderRadius: '11px',
+    padding: '13px 22px',
+    background: '#222',
+    color: '#fff',
+    fontSize: '15px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+
+  mensagem: {
+    padding: '12px 14px',
+    borderRadius: '10px',
+    background: '#f0f0eb',
+    color: '#444',
+    fontSize: '14px',
+    marginBottom: '18px',
+  },
+
+  erro: {
+    padding: '12px 14px',
+    borderRadius: '10px',
+    background: '#fff0f0',
+    color: '#a33',
+    fontSize: '14px',
+    marginBottom: '18px',
+  },
+
+  carregando: {
+    minHeight: '60vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#777',
+    fontSize: '15px',
+  },
+
+  observacao: {
+    marginTop: '8px',
+    padding: '12px 14px',
+    borderRadius: '10px',
+    background: '#fafaf7',
+    border: '1px solid #eeeeea',
+    color: '#777',
+    fontSize: '13px',
+    lineHeight: 1.5,
+  },
 }
 
 export default function EditarEmpresaPage({
   empresaId,
   onVoltar,
 }: EditarEmpresaPageProps) {
-  const [empresa, setEmpresa] =
-    useState<Empresa | null>(null)
+  const [empresa, setEmpresa] = useState<Empresa>({
+    razao_social: '',
+    nome_fantasia: '',
+    documento: '',
+    slug: '',
+    email: '',
+    telefone: '',
+    whatsapp: '',
+    cidade: '',
+    estado: '',
+    descricao_publica: '',
+  })
 
-  const [nomeFantasia, setNomeFantasia] =
-    useState('')
-
-  const [razaoSocial, setRazaoSocial] =
-    useState('')
-
-  const [documento, setDocumento] =
-    useState('')
-
-  const [email, setEmail] =
-    useState('')
-
-  const [telefone, setTelefone] =
-    useState('')
-
-  const [whatsapp, setWhatsapp] =
-    useState('')
-
-  const [descricaoPublica, setDescricaoPublica] =
-    useState('')
-
-  const [carregando, setCarregando] =
-    useState(true)
-
-  const [salvando, setSalvando] =
-    useState(false)
-
-  const [erro, setErro] =
-    useState('')
-
-  const [sucesso, setSucesso] =
-    useState(false)
+  const [carregando, setCarregando] = useState(true)
+  const [salvando, setSalvando] = useState(false)
+  const [mensagem, setMensagem] = useState('')
+  const [erro, setErro] = useState('')
 
   useEffect(() => {
     carregarEmpresa()
@@ -78,367 +254,331 @@ export default function EditarEmpresaPage({
 
     const { data, error } = await supabase
       .from('empresas')
-      .select(
-        `
-          id,
-          razao_social,
-          nome_fantasia,
-          documento,
-          email,
-          telefone,
-          whatsapp,
-          cidade,
-          estado,
-          descricao_publica
-        `
-      )
+      .select(`
+        razao_social,
+        nome_fantasia,
+        documento,
+        slug,
+        email,
+        telefone,
+        whatsapp,
+        cidade,
+        estado,
+        descricao_publica
+      `)
       .eq('id', empresaId)
       .maybeSingle()
 
     if (error) {
       console.error(error)
-      setErro(
-        'Não foi possível carregar os dados do negócio.'
-      )
+      setErro('Não foi possível carregar os dados da empresa.')
       setCarregando(false)
       return
     }
 
     if (!data) {
-      setErro(
-        'Não encontramos os dados deste negócio.'
-      )
+      setErro('Empresa não encontrada.')
       setCarregando(false)
       return
     }
 
-    const dados = data as Empresa
-
-    setEmpresa(dados)
-    setNomeFantasia(
-      dados.nome_fantasia ?? ''
-    )
-    setRazaoSocial(
-      dados.razao_social ?? ''
-    )
-    setDocumento(
-      dados.documento ?? ''
-    )
-    setEmail(
-      dados.email ?? ''
-    )
-    setTelefone(
-      dados.telefone ?? ''
-    )
-    setWhatsapp(
-      dados.whatsapp ?? ''
-    )
-    setDescricaoPublica(
-      dados.descricao_publica ?? ''
-    )
+    setEmpresa({
+      razao_social: data.razao_social ?? '',
+      nome_fantasia: data.nome_fantasia ?? '',
+      documento: data.documento ?? '',
+      slug: data.slug ?? '',
+      email: data.email ?? '',
+      telefone: data.telefone ?? '',
+      whatsapp: data.whatsapp ?? '',
+      cidade: data.cidade ?? '',
+      estado: data.estado ?? '',
+      descricao_publica: data.descricao_publica ?? '',
+    })
 
     setCarregando(false)
   }
 
-  async function salvar() {
+  function alterarCampo(campo: keyof Empresa, valor: string) {
+    setEmpresa((atual) => ({
+      ...atual,
+      [campo]: valor,
+    }))
+
+    setMensagem('')
     setErro('')
-    setSucesso(false)
+  }
 
-    if (!nomeFantasia.trim()) {
-      setErro(
-        'Informe o nome que aparecerá para seus clientes.'
-      )
-      return
-    }
-
+  async function salvar() {
     setSalvando(true)
+    setMensagem('')
+    setErro('')
 
     const { error } = await supabase
       .from('empresas')
       .update({
-        nome_fantasia:
-          nomeFantasia.trim(),
-        razao_social:
-          razaoSocial.trim() || null,
-        documento:
-          documento.trim() || null,
-        email:
-          email.trim() || null,
-        telefone:
-          telefone.trim() || null,
-        whatsapp:
-          whatsapp.trim() || null,
-        descricao_publica:
-          descricaoPublica.trim() || null,
+        razao_social: empresa.razao_social.trim(),
+        nome_fantasia: empresa.nome_fantasia.trim(),
+        documento: empresa.documento.trim(),
+        slug: empresa.slug.trim(),
+        email: empresa.email.trim(),
+        telefone: empresa.telefone.trim(),
+        whatsapp: empresa.whatsapp.trim(),
+        cidade: empresa.cidade.trim(),
+        estado: empresa.estado.trim(),
+        descricao_publica: empresa.descricao_publica.trim(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', empresaId)
 
-    setSalvando(false)
-
     if (error) {
       console.error(error)
-
-      setErro(
-        'Não foi possível salvar as alterações.'
-      )
+      setErro('Não foi possível salvar as alterações.')
+      setSalvando(false)
       return
     }
 
-    setSucesso(true)
-
-    await carregarEmpresa()
-
-    window.setTimeout(() => {
-      setSucesso(false)
-    }, 3000)
+    setMensagem('Informações salvas com sucesso.')
+    setSalvando(false)
   }
 
   if (carregando) {
-    return (
-      <div className="min-h-screen bg-[#f7f9f7] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2
-            size={32}
-            className="mx-auto animate-spin text-[#159447]"
-          />
-
-          <p className="mt-3 text-sm text-[#66706a]">
-            Carregando dados...
-          </p>
-        </div>
-      </div>
-    )
+    return <div style={estilos.carregando}>Carregando informações...</div>
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f9f7] text-[#202622]">
-      <div className="mx-auto min-h-screen max-w-3xl">
-        <header className="sticky top-0 z-20 border-b border-[#e1e8e3] bg-white/95 px-4 py-4 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={onVoltar}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#dbe5df] bg-white text-[#202622]"
-              aria-label="Voltar"
-            >
-              <ArrowLeft size={19} />
-            </button>
+    <div style={estilos.pagina}>
+      <div style={estilos.container}>
 
-            <div>
-              <h1 className="text-lg font-bold">
-                Informações do negócio
-              </h1>
+        <div style={estilos.topo}>
+          <button
+            type="button"
+            onClick={onVoltar}
+            style={estilos.botaoVoltar}
+            aria-label="Voltar"
+          >
+            <ArrowLeft size={20} />
+          </button>
 
-              <p className="text-xs text-[#66706a]">
-                Dados que identificam sua empresa
-              </p>
-            </div>
+          <div style={estilos.tituloArea}>
+            <h1 style={estilos.titulo}>Informações do negócio</h1>
+            <p style={estilos.subtitulo}>
+              Mantenha os dados da empresa sempre atualizados.
+            </p>
           </div>
-        </header>
+        </div>
 
-        <main className="space-y-5 px-4 py-5">
-          {erro && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              {erro}
-            </div>
-          )}
+        {erro && (
+          <div style={estilos.erro}>
+            {erro}
+          </div>
+        )}
 
-          {sucesso && (
-            <div className="flex items-center gap-2 rounded-2xl border border-[#bfe2cb] bg-[#eaf7ef] p-4 text-sm font-medium text-[#0f6f38]">
-              <Check size={18} />
-              Alterações salvas com sucesso.
-            </div>
-          )}
+        {mensagem && (
+          <div style={estilos.mensagem}>
+            {mensagem}
+          </div>
+        )}
 
-          <section className="rounded-3xl border border-[#e1e8e3] bg-white p-5 shadow-sm">
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eaf7ef]">
-                <Store
-                  size={21}
-                  className="text-[#159447]"
-                />
-              </div>
+        <div style={estilos.card}>
+          <h2 style={estilos.tituloSecao}>
+            <span style={estilos.iconeSecao}>
+              <Building2 size={19} />
+            </span>
+            Dados do negócio
+          </h2>
 
-              <div>
-                <h2 className="font-bold">
-                  Identidade do negócio
-                </h2>
+          <div style={estilos.grade}>
 
-                <p className="text-sm text-[#66706a]">
-                  Como seu negócio será apresentado.
-                </p>
-              </div>
-            </div>
+            <div style={estilos.campo}>
+              <label style={estilos.label}>
+                Nome fantasia
+              </label>
 
-            <div className="space-y-4">
-              <Campo
-                label="Nome do negócio"
-                value={nomeFantasia}
-                onChange={setNomeFantasia}
-                placeholder="Ex.: Maria Magnólia"
+              <input
+                type="text"
+                value={empresa.nome_fantasia}
+                onChange={(e) =>
+                  alterarCampo('nome_fantasia', e.target.value)
+                }
+                style={estilos.input}
+                placeholder="Nome que seus clientes conhecem"
               />
+            </div>
 
-              <Campo
-                label="Razão social"
-                value={razaoSocial}
-                onChange={setRazaoSocial}
+            <div style={estilos.campo}>
+              <label style={estilos.label}>
+                Razão social
+              </label>
+
+              <input
+                type="text"
+                value={empresa.razao_social}
+                onChange={(e) =>
+                  alterarCampo('razao_social', e.target.value)
+                }
+                style={estilos.input}
                 placeholder="Razão social"
               />
+            </div>
 
-              <Campo
-                label="CNPJ ou CPF"
-                value={documento}
-                onChange={setDocumento}
-                placeholder="Documento"
+            <div style={estilos.campo}>
+              <label style={estilos.label}>
+                Documento
+              </label>
+
+              <input
+                type="text"
+                value={empresa.documento}
+                onChange={(e) =>
+                  alterarCampo('documento', e.target.value)
+                }
+                style={estilos.input}
+                placeholder="CPF ou CNPJ"
               />
             </div>
-          </section>
 
-          <section className="rounded-3xl border border-[#e1e8e3] bg-white p-5 shadow-sm">
-            <div className="mb-5">
-              <h2 className="font-bold">
-                Dados de contato
-              </h2>
+            <div style={estilos.campo}>
+              <label style={estilos.label}>
+                Identificação da página
+              </label>
 
-              <p className="mt-1 text-sm text-[#66706a]">
-                Informações usadas para identificação
-                do negócio.
+              <input
+                type="text"
+                value={empresa.slug}
+                onChange={(e) =>
+                  alterarCampo('slug', e.target.value)
+                }
+                style={estilos.input}
+                placeholder="nome-do-negocio"
+              />
+
+              <p style={estilos.ajuda}>
+                É usada no endereço público da sua vitrine.
               </p>
             </div>
 
-            <div className="space-y-4">
-              <Campo
-                label="E-mail"
-                value={email}
-                onChange={setEmail}
-                placeholder="seunegocio@email.com"
-                type="email"
-                icon={
-                  <Mail size={17} />
-                }
-              />
+          </div>
+        </div>
 
-              <Campo
-                label="Telefone"
-                value={telefone}
-                onChange={setTelefone}
-                placeholder="Telefone"
-                icon={
-                  <Phone size={17} />
-                }
-              />
+        <div style={estilos.card}>
+          <h2 style={estilos.tituloSecao}>
+            <span style={estilos.iconeSecao}>
+              <FileText size={19} />
+            </span>
+            Como o negócio aparece para o cliente
+          </h2>
 
-              <Campo
-                label="WhatsApp"
-                value={whatsapp}
-                onChange={setWhatsapp}
-                placeholder="WhatsApp"
-                icon={
-                  <Phone size={17} />
-                }
-              />
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-[#e1e8e3] bg-white p-5 shadow-sm">
-            <div className="mb-4">
-              <h2 className="font-bold">
-                Sobre o negócio
-              </h2>
-
-              <p className="mt-1 text-sm leading-5 text-[#66706a]">
-                Escreva uma apresentação do seu negócio.
-                Esse texto poderá aparecer na sua vitrine
-                pública.
-              </p>
-            </div>
+          <div style={estilos.campo}>
+            <label style={estilos.label}>
+              Sobre o negócio
+            </label>
 
             <textarea
-              value={descricaoPublica}
-              onChange={(event) =>
-                setDescricaoPublica(
-                  event.target.value
-                )
+              value={empresa.descricao_publica}
+              onChange={(e) =>
+                alterarCampo('descricao_publica', e.target.value)
               }
-              rows={7}
-              placeholder="Conte um pouco sobre seu negócio, seus produtos, seu atendimento ou o que você gostaria que seus clientes soubessem..."
-              className="w-full resize-none rounded-2xl border border-[#dbe5df] bg-[#fbfcfb] px-4 py-3 text-sm leading-6 outline-none transition focus:border-[#159447] focus:ring-4 focus:ring-[#159447]/10"
+              style={estilos.textarea}
+              placeholder="Conte um pouco sobre seu negócio, seus produtos, sua história ou aquilo que você gostaria que seus clientes soubessem."
             />
 
-            <p className="mt-2 text-xs text-[#8a948e]">
-              Você pode alterar esse texto quando quiser.
+            <p style={estilos.ajuda}>
+              Esse texto poderá aparecer na sua página pública, na seção
+              “Sobre o negócio”.
             </p>
-          </section>
+          </div>
+        </div>
 
+        <div style={estilos.card}>
+          <h2 style={estilos.tituloSecao}>
+            <span style={estilos.iconeSecao}>
+              <MapPin size={19} />
+            </span>
+            Contato
+          </h2>
+
+          <div style={estilos.grade}>
+
+            <div style={estilos.campo}>
+              <label style={estilos.label}>
+                E-mail
+              </label>
+
+              <input
+                type="email"
+                value={empresa.email}
+                onChange={(e) =>
+                  alterarCampo('email', e.target.value)
+                }
+                style={estilos.input}
+                placeholder="seunegocio@email.com"
+              />
+            </div>
+
+            <div style={estilos.campo}>
+              <label style={estilos.label}>
+                Telefone
+              </label>
+
+              <input
+                type="text"
+                value={empresa.telefone}
+                onChange={(e) =>
+                  alterarCampo('telefone', e.target.value)
+                }
+                style={estilos.input}
+                placeholder="Telefone"
+              />
+            </div>
+
+            <div style={estilos.campo}>
+              <label style={estilos.label}>
+                WhatsApp
+              </label>
+
+              <input
+                type="text"
+                value={empresa.whatsapp}
+                onChange={(e) =>
+                  alterarCampo('whatsapp', e.target.value)
+                }
+                style={estilos.input}
+                placeholder="WhatsApp"
+              />
+
+              <p style={estilos.ajuda}>
+                O WhatsApp será usado nas etapas de pedido, não como botão
+                direto na vitrine pública.
+              </p>
+            </div>
+
+          </div>
+
+          <div style={estilos.observacao}>
+            <strong>Endereço:</strong> vamos tratar os dados completos de
+            endereço em uma página própria, incluindo CEP, número,
+            complemento e localização.
+          </div>
+        </div>
+
+        <div style={estilos.rodape}>
           <button
             type="button"
             onClick={salvar}
             disabled={salvando}
-            className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-[#159447] px-5 py-4 font-semibold text-white shadow-sm transition hover:bg-[#0f6f38] disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              ...estilos.botaoSalvar,
+              opacity: salvando ? 0.7 : 1,
+              cursor: salvando ? 'default' : 'pointer',
+            }}
           >
-            {salvando ? (
-              <>
-                <Loader2
-                  size={19}
-                  className="animate-spin"
-                />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save size={19} />
-                Salvar alterações
-              </>
-            )}
+            <Save size={18} />
+
+            {salvando ? 'Salvando...' : 'Salvar alterações'}
           </button>
-        </main>
+        </div>
+
       </div>
     </div>
-  )
-}
-
-interface CampoProps {
-  label: string
-  value: string
-  onChange: (valor: string) => void
-  placeholder?: string
-  type?: string
-  icon?: React.ReactNode
-}
-
-function Campo({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-  icon,
-}: CampoProps) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-[#202622]">
-        {label}
-      </span>
-
-      <div className="relative">
-        {icon && (
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a948e]">
-            {icon}
-          </span>
-        )}
-
-        <input
-          type={type}
-          value={value}
-          onChange={(event) =>
-            onChange(event.target.value)
-          }
-          placeholder={placeholder}
-          className={`h-12 w-full rounded-2xl border border-[#dbe5df] bg-[#fbfcfb] text-sm outline-none transition focus:border-[#159447] focus:ring-4 focus:ring-[#159447]/10 ${
-            icon ? 'pl-11' : 'px-4'
-          } pr-4`}
-        />
-      </div>
-    </label>
   )
 }
