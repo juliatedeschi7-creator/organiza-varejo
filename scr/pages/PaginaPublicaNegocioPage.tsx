@@ -1,39 +1,33 @@
+import { useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
-  ChevronRight,
+  ChevronDown,
   MapPin,
   Search,
-  Share2,
   ShoppingBag,
-  Store,
-  X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import ProdutoDetalhePage from './ProdutoDetalhePage'
 
 interface PaginaPublicaNegocioPageProps {
   empresaId: string
-  onVoltar: () => void
+  onVoltar?: () => void
 }
 
 interface Empresa {
   id: string
   nome_fantasia: string | null
-  razao_social: string | null
+  slug: string | null
   logo_url: string | null
   banner_url: string | null
   cidade: string | null
   estado: string | null
-  telefone: string | null
-  whatsapp: string | null
-  email: string | null
-  status: string | null
   descricao_publica: string | null
 }
 
 interface Filial {
   id: string
+  empresa_id: string
   nome: string | null
   codigo: string | null
   telefone: string | null
@@ -45,7 +39,43 @@ interface Filial {
   bairro: string | null
   cidade: string | null
   estado: string | null
+  latitude: number | null
+  longitude: number | null
   ativa: boolean
+}
+
+interface Vitrine {
+  id: string
+  empresa_id: string
+  filial_id: string | null
+  nome_exibicao: string | null
+  descricao: string | null
+  slug: string | null
+  logo_url: string | null
+  banner_url: string | null
+  cor_principal: string | null
+  cor_secundaria: string | null
+  cor_destaque: string | null
+  mensagem_boas_vindas: string | null
+  mensagem_fechado: string | null
+  mostrar_precos: boolean
+  permitir_pedidos: boolean
+  permitir_favoritos: boolean
+  permitir_compartilhamento: boolean
+  ativo: boolean
+  fuso_horario: string
+}
+
+interface VitrineAparencia {
+  vitrine_id: string
+  fonte: string | null
+  estilo_botoes: string | null
+  estilo_cards: string | null
+  raio_bordas: number | null
+  mostrar_logo: boolean
+  mostrar_nome_loja: boolean
+  layout_inicio: string | null
+  tema: string | null
 }
 
 interface Categoria {
@@ -56,299 +86,319 @@ interface Categoria {
   slug: string
   descricao: string | null
   imagem_url: string | null
-  ordem: number | null
+  ordem: number
 }
 
 interface Produto {
   id: string
   empresa_id: string
   categoria_id: string | null
+  marca_id: string | null
   nome: string
-  slug: string | null
+  slug: string
   descricao: string | null
   descricao_curta: string | null
-  unidade: string | null
-  vendido_por_peso: boolean | null
-  vendido_por_medida: boolean | null
-  preco: number | null
+  sku: string | null
+  codigo_barras: string | null
+  codigo_interno: string | null
+  unidade: string
+  vendido_por_peso: boolean
+  vendido_por_medida: boolean
+  preco: number
   preco_promocional: number | null
-  destaque_vitrine: boolean | null
-  visivel_vitrine: boolean | null
-  ativo: boolean | null
+  custo: number | null
+  destaque_vitrine: boolean
+  visivel_vitrine: boolean
+  ativo: boolean
+  controla_estoque: boolean
+  informacoes_adicionais: Record<string, unknown> | null
+  meta_titulo: string | null
+  meta_descricao: string | null
+  created_at: string
+  updated_at: string
+  promocao_inicio: string | null
+  promocao_fim: string | null
+  unidade_estoque_id: string | null
+  unidade_venda_id: string | null
+  unidade_compra_id: string | null
+  permite_venda_fracionada: boolean
+  permite_compra_fracionada: boolean
+  permite_consumo_fracionada: boolean
 }
 
-interface ProdutoFoto {
+interface FotoProduto {
   foto_id: string
   produto_id: string
   variacao_id: string | null
   url: string
-  ordem: number | null
-  principal: boolean | null
+  ordem: number
+  principal: boolean
   alt_text: string | null
 }
 
-function formatarPreco(
-  valor: number | null | undefined
-) {
-  if (valor === null || valor === undefined) {
-    return ''
-  }
-
-  return valor.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  })
+interface PropsTema {
+  principal: string
+  secundaria: string
+  destaque: string
+  fundo: string
+  texto: string
+  textoSecundario: string
+  card: string
 }
 
-function montarEndereco(
-  filial: Filial | null
-) {
-  if (!filial) {
-    return ''
-  }
-
-  const partes = [
-    filial.logradouro,
-    filial.numero,
-    filial.complemento,
-    filial.bairro,
-    filial.cidade,
-    filial.estado,
-  ].filter(Boolean)
-
-  return partes.join(', ')
-}
-
-function obterImagemProduto(
-  produtoId: string,
-  fotos: ProdutoFoto[]
-) {
-  const fotosProduto = fotos
-    .filter(
-      (foto) =>
-        foto.produto_id === produtoId
-    )
-    .sort((a, b) => {
-      if (a.principal && !b.principal) {
-        return -1
-      }
-
-      if (!a.principal && b.principal) {
-        return 1
-      }
-
-      return (
-        Number(a.ordem ?? 0) -
-        Number(b.ordem ?? 0)
-      )
-    })
-
-  return fotosProduto[0]?.url ?? null
+const aparenciaPadrao: VitrineAparencia = {
+  vitrine_id: '',
+  fonte: null,
+  estilo_botoes: 'arredondado',
+  estilo_cards: 'suave',
+  raio_bordas: 12,
+  mostrar_logo: true,
+  mostrar_nome_loja: true,
+  layout_inicio: 'catalogo',
+  tema: 'claro',
 }
 
 export default function PaginaPublicaNegocioPage({
   empresaId,
   onVoltar,
 }: PaginaPublicaNegocioPageProps) {
-  const [empresa, setEmpresa] =
-    useState<Empresa | null>(null)
+  const [empresa, setEmpresa] = useState<Empresa | null>(null)
+  const [vitrine, setVitrine] = useState<Vitrine | null>(null)
+  const [aparencia, setAparencia] =
+    useState<VitrineAparencia>(aparenciaPadrao)
 
-  const [filiais, setFiliais] =
-    useState<Filial[]>([])
+  const [filiais, setFiliais] = useState<Filial[]>([])
+  const [filialSelecionadaId, setFilialSelecionadaId] =
+    useState<string | null>(null)
 
-  const [categorias, setCategorias] =
-    useState<Categoria[]>([])
-
-  const [produtos, setProdutos] =
-    useState<Produto[]>([])
-
-  const [fotos, setFotos] =
-    useState<ProdutoFoto[]>([])
-
-  const [
-    filialSelecionadaId,
-    setFilialSelecionadaId,
-  ] = useState<string | null>(null)
-
-  const [
-    categoriaSelecionadaId,
-    setCategoriaSelecionadaId,
-  ] = useState<string | null>(null)
+  const [categorias, setCategorias] = useState<Categoria[]>([])
+  const [produtos, setProdutos] = useState<Produto[]>([])
+  const [fotos, setFotos] = useState<FotoProduto[]>([])
 
   const [busca, setBusca] = useState('')
+  const [categoriaSelecionada, setCategoriaSelecionada] =
+    useState<string | null>(null)
 
-  const [carregando, setCarregando] =
-    useState(true)
+  const [produtoSelecionado, setProdutoSelecionado] =
+    useState<Produto | null>(null)
 
-  const [erro, setErro] =
-    useState('')
-
-  const [
-    produtoSelecionadoId,
-    setProdutoSelecionadoId,
-  ] = useState<string | null>(null)
+  const [carregando, setCarregando] = useState(true)
+  const [erro, setErro] = useState('')
 
   useEffect(() => {
-    carregarDados()
+    carregarPagina()
   }, [empresaId])
 
-  async function carregarDados() {
-    setCarregando(true)
-    setErro('')
-
+  async function carregarPagina() {
     try {
-      const [
-        empresaResponse,
-        filiaisResponse,
-        categoriasResponse,
-        produtosResponse,
-      ] = await Promise.all([
-        supabase
-          .from('empresas')
-          .select(
-            `
-              id,
-              nome_fantasia,
-              razao_social,
-              logo_url,
-              banner_url,
-              cidade,
-              estado,
-              telefone,
-              whatsapp,
-              email,
-              status,
-              descricao_publica
-            `
-          )
-          .eq('id', empresaId)
-          .maybeSingle(),
+      setCarregando(true)
+      setErro('')
 
-        supabase
-          .from('filiais')
-          .select(
-            `
-              id,
-              nome,
-              codigo,
-              telefone,
-              whatsapp,
-              cep,
-              logradouro,
-              numero,
-              complemento,
-              bairro,
-              cidade,
-              estado,
-              ativa
-            `
+      const { data: empresaData, error: empresaError } =
+        await supabase
+          .from('empresas')
+          .select(`
+            id,
+            nome_fantasia,
+            slug,
+            logo_url,
+            banner_url,
+            cidade,
+            estado,
+            descricao_publica
+          `)
+          .eq('id', empresaId)
+          .maybeSingle()
+
+      if (empresaError) throw empresaError
+
+      if (!empresaData) {
+        setErro('Negócio não encontrado.')
+        return
+      }
+
+      setEmpresa(empresaData as Empresa)
+
+      const { data: vitrineData, error: vitrineError } =
+        await supabase
+          .from('vitrines')
+          .select(`
+            id,
+            empresa_id,
+            filial_id,
+            nome_exibicao,
+            descricao,
+            slug,
+            logo_url,
+            banner_url,
+            cor_principal,
+            cor_secundaria,
+            cor_destaque,
+            mensagem_boas_vindas,
+            mensagem_fechado,
+            mostrar_precos,
+            permitir_pedidos,
+            permitir_favoritos,
+            permitir_compartilhamento,
+            ativo,
+            fuso_horario
+          `)
+          .eq('empresa_id', empresaId)
+          .eq('ativo', true)
+          .limit(1)
+          .maybeSingle()
+
+      if (vitrineError) throw vitrineError
+
+      if (vitrineData) {
+        setVitrine(vitrineData as Vitrine)
+
+        const { data: aparenciaData, error: aparenciaError } =
+          await supabase
+            .from('vitrine_aparencia')
+            .select(`
+              vitrine_id,
+              fonte,
+              estilo_botoes,
+              estilo_cards,
+              raio_bordas,
+              mostrar_logo,
+              mostrar_nome_loja,
+              layout_inicio,
+              tema
+            `)
+            .eq('vitrine_id', vitrineData.id)
+            .maybeSingle()
+
+        if (aparenciaError) throw aparenciaError
+
+        if (aparenciaData) {
+          setAparencia(
+            aparenciaData as VitrineAparencia,
           )
+        } else {
+          setAparencia({
+            ...aparenciaPadrao,
+            vitrine_id: vitrineData.id,
+          })
+        }
+      }
+
+      const { data: filiaisData, error: filiaisError } =
+        await supabase
+          .from('filiais')
+          .select(`
+            id,
+            empresa_id,
+            nome,
+            codigo,
+            telefone,
+            whatsapp,
+            cep,
+            logradouro,
+            numero,
+            complemento,
+            bairro,
+            cidade,
+            estado,
+            latitude,
+            longitude,
+            ativa
+          `)
           .eq('empresa_id', empresaId)
           .eq('ativa', true)
-          .order('created_at', {
-            ascending: true,
-          }),
+          .order('nome')
 
-        supabase
+      if (filiaisError) throw filiaisError
+
+      const filiaisAtivas = (filiaisData || []) as Filial[]
+
+      setFiliais(filiaisAtivas)
+
+      if (filiaisAtivas.length > 0) {
+        setFilialSelecionadaId(filiaisAtivas[0].id)
+      }
+
+      const { data: categoriasData, error: categoriasError } =
+        await supabase
           .from('catalogo_publico_categorias')
-          .select(
-            `
-              categoria_id,
-              empresa_id,
-              categoria_pai_id,
-              nome,
-              slug,
-              descricao,
-              imagem_url,
-              ordem
-            `
-          )
+          .select(`
+            categoria_id,
+            empresa_id,
+            categoria_pai_id,
+            nome,
+            slug,
+            descricao,
+            imagem_url,
+            ordem
+          `)
           .eq('empresa_id', empresaId)
-          .order('ordem', {
-            ascending: true,
-          }),
+          .order('ordem')
+          .order('nome')
 
-        supabase
+      if (categoriasError) throw categoriasError
+
+      setCategorias((categoriasData || []) as Categoria[])
+
+      const { data: produtosData, error: produtosError } =
+        await supabase
           .from('produtos')
-          .select(
-            `
-              id,
-              empresa_id,
-              categoria_id,
-              nome,
-              slug,
-              descricao,
-              descricao_curta,
-              unidade,
-              vendido_por_peso,
-              vendido_por_medida,
-              preco,
-              preco_promocional,
-              destaque_vitrine,
-              visivel_vitrine,
-              ativo
-            `
-          )
+          .select(`
+            id,
+            empresa_id,
+            categoria_id,
+            marca_id,
+            nome,
+            slug,
+            descricao,
+            descricao_curta,
+            sku,
+            codigo_barras,
+            codigo_interno,
+            unidade,
+            vendido_por_peso,
+            vendido_por_medida,
+            preco,
+            preco_promocional,
+            custo,
+            destaque_vitrine,
+            visivel_vitrine,
+            ativo,
+            controla_estoque,
+            informacoes_adicionais,
+            meta_titulo,
+            meta_descricao,
+            created_at,
+            updated_at,
+            promocao_inicio,
+            promocao_fim,
+            unidade_estoque_id,
+            unidade_venda_id,
+            unidade_compra_id,
+            permite_venda_fracionada,
+            permite_compra_fracionada,
+            permite_consumo_fracionada
+          `)
           .eq('empresa_id', empresaId)
           .eq('ativo', true)
           .eq('visivel_vitrine', true)
-          .order('destaque_vitrine', {
-            ascending: false,
-          })
-          .order('nome', {
-            ascending: true,
-          }),
-      ])
+          .order('nome')
 
-      if (empresaResponse.error) {
-        throw empresaResponse.error
-      }
+      if (produtosError) throw produtosError
 
-      if (filiaisResponse.error) {
-        throw filiaisResponse.error
-      }
+      const produtosAtivos = (produtosData || []) as Produto[]
 
-      if (categoriasResponse.error) {
-        throw categoriasResponse.error
-      }
+      setProdutos(produtosAtivos)
 
-      if (produtosResponse.error) {
-        throw produtosResponse.error
-      }
-
-      const empresaData =
-        empresaResponse.data as Empresa | null
-
-      const filiaisData =
-        (filiaisResponse.data ??
-          []) as Filial[]
-
-      const categoriasData =
-        (categoriasResponse.data ??
-          []) as Categoria[]
-
-      const produtosData =
-        (produtosResponse.data ??
-          []) as Produto[]
-
-      let fotosData: ProdutoFoto[] = []
-
-      /*
-       * Só buscamos fotos depois de termos
-       * os IDs reais dos produtos.
-       *
-       * Isso evita fazer uma consulta .in()
-       * com uma lista vazia.
-       */
-      if (produtosData.length > 0) {
-        const ids = produtosData.map(
-          (produto) => produto.id
+      if (produtosAtivos.length > 0) {
+        const ids = produtosAtivos.map(
+          (produto) => produto.id,
         )
 
-        const fotosResult = await supabase
-          .from('catalogo_publico_fotos')
-          .select(
-            `
+        const { data: fotosData, error: fotosError } =
+          await supabase
+            .from('catalogo_publico_fotos')
+            .select(`
               foto_id,
               produto_id,
               variacao_id,
@@ -356,158 +406,264 @@ export default function PaginaPublicaNegocioPage({
               ordem,
               principal,
               alt_text
-            `
-          )
-          .in('produto_id', ids)
-          .order('ordem', {
-            ascending: true,
-          })
+            `)
+            .in('produto_id', ids)
+            .order('ordem')
 
-        if (fotosResult.error) {
-          throw fotosResult.error
-        }
+        if (fotosError) throw fotosError
 
-        fotosData =
-          (fotosResult.data ??
-            []) as ProdutoFoto[]
-      }
-
-      setEmpresa(empresaData)
-      setFiliais(filiaisData)
-      setCategorias(categoriasData)
-      setProdutos(produtosData)
-      setFotos(fotosData)
-
-      if (filiaisData.length > 0) {
-        setFilialSelecionadaId(
-          filiaisData[0].id
-        )
+        setFotos((fotosData || []) as FotoProduto[])
       } else {
-        setFilialSelecionadaId(null)
+        setFotos([])
       }
     } catch (error) {
-      console.error(
-        'Erro ao carregar página pública:',
-        error
-      )
-
+      console.error('Erro ao carregar página pública:', error)
       setErro(
-        'Não foi possível carregar a página desta empresa.'
+        'Não foi possível carregar a página do negócio.',
       )
     } finally {
       setCarregando(false)
     }
   }
 
-  const filialSelecionada = useMemo(() => {
-    return (
+  const filialSelecionada = useMemo(
+    () =>
       filiais.find(
         (filial) =>
-          filial.id ===
-          filialSelecionadaId
-      ) ?? null
-    )
-  }, [
-    filiais,
-    filialSelecionadaId,
-  ])
-
-  const categoriasRaiz = useMemo(() => {
-    return categorias
-      .filter(
-        (categoria) =>
-          !categoria.categoria_pai_id
-      )
-      .sort(
-        (a, b) =>
-          Number(a.ordem ?? 0) -
-          Number(b.ordem ?? 0)
-      )
-  }, [categorias])
+          filial.id === filialSelecionadaId,
+      ) || null,
+    [filiais, filialSelecionadaId],
+  )
 
   const produtosFiltrados = useMemo(() => {
-    const texto =
-      busca.trim().toLowerCase()
+    const termo = busca.trim().toLowerCase()
 
     return produtos.filter((produto) => {
-      const pertenceCategoria =
-        !categoriaSelecionadaId ||
-        produto.categoria_id ===
-          categoriaSelecionadaId
+      const correspondeBusca =
+        !termo ||
+        produto.nome.toLowerCase().includes(termo) ||
+        (produto.descricao_curta || '')
+          .toLowerCase()
+          .includes(termo)
 
-      if (!pertenceCategoria) {
-        return false
-      }
+      const correspondeCategoria =
+        !categoriaSelecionada ||
+        produto.categoria_id === categoriaSelecionada
 
-      if (!texto) {
-        return true
-      }
-
-      const conteudo = [
-        produto.nome,
-        produto.descricao,
-        produto.descricao_curta,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-
-      return conteudo.includes(texto)
+      return (
+        correspondeBusca &&
+        correspondeCategoria
+      )
     })
   }, [
     produtos,
     busca,
-    categoriaSelecionadaId,
+    categoriaSelecionada,
   ])
 
-  const produtosDestaque = useMemo(() => {
-    return produtos.filter(
-      (produto) =>
-        produto.destaque_vitrine
-    )
-  }, [produtos])
+  const produtosDestaque = useMemo(
+    () =>
+      produtos.filter(
+        (produto) =>
+          produto.destaque_vitrine,
+      ),
+    [produtos],
+  )
 
-  function compartilharPagina() {
-    const url = window.location.href
+  const tema = useMemo<PropsTema>(() => {
+    const principal =
+      vitrine?.cor_principal || '#159447'
 
-    if (navigator.share) {
-      navigator
-        .share({
-          title:
-            empresa?.nome_fantasia ??
-            'Vitrine',
-          text: `Confira a vitrine de ${
-            empresa?.nome_fantasia ??
-            'esta empresa'
-          }`,
-          url,
-        })
-        .catch(() => {})
+    const secundaria =
+      vitrine?.cor_secundaria || '#EAF7EF'
 
-      return
+    const destaque =
+      vitrine?.cor_destaque || '#0F6F38'
+
+    const escuro =
+      aparencia.tema === 'escuro'
+
+    return {
+      principal,
+      secundaria,
+      destaque,
+      fundo: escuro ? '#121714' : '#F7F9F7',
+      texto: escuro ? '#F5F8F6' : '#202622',
+      textoSecundario: escuro
+        ? '#AEB9B2'
+        : '#66706A',
+      card: escuro ? '#1B211E' : '#FFFFFF',
     }
+  }, [
+    vitrine,
+    aparencia.tema,
+  ])
 
-    navigator.clipboard
-      ?.writeText(url)
-      .then(() => {
-        window.alert(
-          'Link da vitrine copiado.'
-        )
+  const raio =
+    aparencia.raio_bordas ?? 12
+
+  const fonte =
+    aparencia.fonte || 'Inter, system-ui, sans-serif'
+
+  const estiloBotao =
+    aparencia.estilo_botoes === 'quadrado'
+      ? 4
+      : raio
+
+  const estiloCard =
+    aparencia.estilo_cards === 'destacado'
+      ? {
+          border: `1px solid ${tema.principal}33`,
+          boxShadow:
+            '0 5px 18px rgba(0,0,0,0.08)',
+        }
+      : {
+          border: `1px solid ${
+            aparencia.tema === 'escuro'
+              ? '#2B342F'
+              : '#E3EAE5'
+          }`,
+          boxShadow:
+            '0 2px 9px rgba(0,0,0,0.035)',
+        }
+
+  function fotoPrincipal(produtoId: string) {
+    const fotosProduto = fotos
+      .filter(
+        (foto) =>
+          foto.produto_id === produtoId,
+      )
+      .sort((a, b) => {
+        if (a.principal && !b.principal) return -1
+        if (!a.principal && b.principal) return 1
+        return a.ordem - b.ordem
       })
-      .catch(() => {
-        window.alert(
-          'Não foi possível copiar o link.'
-        )
-      })
+
+    return fotosProduto[0] || null
   }
 
-  if (produtoSelecionadoId) {
+  function formatarPreco(valor: number) {
+    return valor.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    })
+  }
+
+  function renderProduto(produto: Produto) {
+    const foto = fotoPrincipal(produto.id)
+
+    const preco =
+      produto.preco_promocional ??
+      produto.preco
+
+    const possuiPromocao =
+      produto.preco_promocional !== null &&
+      produto.preco_promocional < produto.preco
+
+    return (
+      <button
+        key={produto.id}
+        type="button"
+        onClick={() =>
+          setProdutoSelecionado(produto)
+        }
+        style={{
+          ...styles.productCard,
+          ...estiloCard,
+          borderRadius: raio,
+          background: tema.card,
+          color: tema.texto,
+        }}
+      >
+        <div
+          style={{
+            ...styles.productImage,
+            borderRadius: Math.max(
+              0,
+              raio - 3,
+            ),
+            background: tema.secundaria,
+          }}
+        >
+          {foto ? (
+            <img
+              src={foto.url}
+              alt={
+                foto.alt_text ||
+                produto.nome
+              }
+              style={styles.productImageImg}
+            />
+          ) : (
+            <div
+              style={{
+                ...styles.noImage,
+                color: tema.textoSecundario,
+              }}
+            >
+              Sem foto
+            </div>
+          )}
+        </div>
+
+        <div style={styles.productInfo}>
+          <h3
+            style={{
+              ...styles.productName,
+              color: tema.texto,
+            }}
+          >
+            {produto.nome}
+          </h3>
+
+          {produto.descricao_curta && (
+            <p
+              style={{
+                ...styles.productDescription,
+                color: tema.textoSecundario,
+              }}
+            >
+              {produto.descricao_curta}
+            </p>
+          )}
+
+          {vitrine?.mostrar_precos !== false && (
+            <div style={styles.priceArea}>
+              {possuiPromocao && (
+                <span
+                  style={{
+                    ...styles.oldPrice,
+                    color: tema.textoSecundario,
+                  }}
+                >
+                  {formatarPreco(
+                    produto.preco,
+                  )}
+                </span>
+              )}
+
+              <strong
+                style={{
+                  ...styles.price,
+                  color: tema.principal,
+                }}
+              >
+                {formatarPreco(preco)}
+              </strong>
+            </div>
+          )}
+        </div>
+      </button>
+    )
+  }
+
+  if (produtoSelecionado) {
     return (
       <ProdutoDetalhePage
+        produto={produtoSelecionado}
         empresaId={empresaId}
-        produtoId={produtoSelecionadoId}
         onVoltar={() =>
-          setProdutoSelecionadoId(null)
+          setProdutoSelecionado(null)
         }
       />
     )
@@ -515,650 +671,1035 @@ export default function PaginaPublicaNegocioPage({
 
   if (carregando) {
     return (
-      <div className="min-h-screen bg-[#f7f9f7] flex items-center justify-center px-5">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-[#dce9df] border-t-[#159447] animate-spin" />
-
-          <p className="text-sm text-[#66706a]">
-            Carregando vitrine...
-          </p>
+      <div
+        style={{
+          ...styles.page,
+          background: '#F7F9F7',
+        }}
+      >
+        <div style={styles.loading}>
+          Carregando vitrine...
         </div>
       </div>
     )
   }
 
-  if (erro || !empresa) {
+  if (erro) {
     return (
-      <div className="min-h-screen bg-[#f7f9f7] px-5 py-10">
-        <div className="mx-auto max-w-2xl">
-          <button
-            type="button"
-            onClick={onVoltar}
-            className="mb-6 inline-flex items-center gap-2 rounded-xl border border-[#dbe5df] bg-white px-4 py-3 text-sm font-semibold text-[#202622] shadow-sm"
-          >
-            <ArrowLeft size={18} />
-            Voltar
-          </button>
+      <div
+        style={{
+          ...styles.page,
+          background: '#F7F9F7',
+        }}
+      >
+        <div style={styles.errorContainer}>
+          <h1 style={styles.errorTitle}>
+            Não foi possível abrir a vitrine
+          </h1>
 
-          <div className="rounded-3xl border border-[#e1e8e3] bg-white p-8 text-center shadow-sm">
-            <Store
-              size={42}
-              className="mx-auto mb-4 text-[#159447]"
-            />
+          <p style={styles.errorText}>
+            {erro}
+          </p>
 
-            <h1 className="text-xl font-bold text-[#202622]">
-              Vitrine indisponível
-            </h1>
-
-            <p className="mt-2 text-sm text-[#66706a]">
-              {erro ||
-                'Não encontramos esta empresa.'}
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const nomeEmpresa =
-    empresa.nome_fantasia ||
-    empresa.razao_social ||
-    'Empresa'
-
-  return (
-    <div className="min-h-screen bg-[#f7f9f7] text-[#202622]">
-      <div className="mx-auto min-h-screen max-w-6xl bg-[#f7f9f7]">
-        <header className="relative overflow-hidden bg-white">
-          <div className="relative h-48 sm:h-60">
-            {empresa.banner_url ? (
-              <img
-                src={empresa.banner_url}
-                alt={`Capa de ${nomeEmpresa}`}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="h-full w-full bg-gradient-to-br from-[#eaf7ef] via-white to-[#dcefe2]" />
-            )}
-
-            <div className="absolute inset-0 bg-black/10" />
-
+          {onVoltar && (
             <button
-              type="button"
               onClick={onVoltar}
-              className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-xl border border-white/70 bg-white/95 px-4 py-3 text-sm font-semibold text-[#202622] shadow-sm transition hover:bg-white"
+              style={{
+                ...styles.backButton,
+                background: '#FFFFFF',
+              }}
             >
               <ArrowLeft size={18} />
               Voltar
             </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
+  const nomeLoja =
+    vitrine?.nome_exibicao ||
+    empresa?.nome_fantasia ||
+    'Meu negócio'
+
+  const logo =
+    vitrine?.logo_url ||
+    empresa?.logo_url
+
+  const banner =
+    vitrine?.banner_url ||
+    empresa?.banner_url
+
+  const descricao =
+    vitrine?.descricao ||
+    empresa?.descricao_publica
+
+  const mostrarNome =
+    aparencia.mostrar_nome_loja
+
+  const mostrarLogo =
+    aparencia.mostrar_logo
+
+  const mensagemBoasVindas =
+    vitrine?.mensagem_boas_vindas
+
+  const mensagemFechado =
+    vitrine?.mensagem_fechado
+
+  const cidade =
+    filialSelecionada?.cidade ||
+    empresa?.cidade
+
+  const estado =
+    filialSelecionada?.estado ||
+    empresa?.estado
+
+  return (
+    <div
+      style={{
+        ...styles.page,
+        background: tema.fundo,
+        color: tema.texto,
+        fontFamily: fonte,
+      }}
+    >
+      <header
+        style={{
+          ...styles.topBar,
+          background: tema.card,
+          borderBottom: `1px solid ${
+            aparencia.tema === 'escuro'
+              ? '#2B342F'
+              : '#E3EAE5'
+          }`,
+        }}
+      >
+        <div style={styles.topBarInner}>
+          {onVoltar && (
             <button
-              type="button"
-              onClick={compartilharPagina}
-              className="absolute right-4 top-4 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/70 bg-white/95 text-[#202622] shadow-sm transition hover:bg-white"
-              aria-label="Compartilhar"
+              onClick={onVoltar}
+              style={{
+                ...styles.backButton,
+                color: tema.texto,
+                background: 'transparent',
+              }}
             >
-              <Share2 size={18} />
+              <ArrowLeft size={18} />
+              Voltar
             </button>
-          </div>
+          )}
 
-          <div className="relative px-5 pb-6">
-            <div className="-mt-12 flex items-end justify-between gap-4">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-white shadow-md">
-                {empresa.logo_url ? (
-                  <img
-                    src={empresa.logo_url}
-                    alt={`Logo de ${nomeEmpresa}`}
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <Store
-                    size={34}
-                    className="text-[#159447]"
-                  />
+          <div style={styles.organizaLabel}>
+            organiza
+          </div>
+        </div>
+      </header>
+
+      {banner && (
+        <div
+          style={{
+            ...styles.banner,
+            borderRadius: 0,
+          }}
+        >
+          <img
+            src={banner}
+            alt=""
+            style={styles.bannerImage}
+          />
+        </div>
+      )}
+
+      <main style={styles.main}>
+        <section
+          style={{
+            ...styles.businessHeader,
+            background: tema.card,
+            borderRadius: raio,
+            ...estiloCard,
+          }}
+        >
+          {mostrarLogo && logo && (
+            <div
+              style={{
+                ...styles.logoWrapper,
+                borderRadius: raio,
+                background: tema.secundaria,
+              }}
+            >
+              <img
+                src={logo}
+                alt={`Logo de ${nomeLoja}`}
+                style={styles.logo}
+              />
+            </div>
+          )}
+
+          {mostrarNome && (
+            <h1
+              style={{
+                ...styles.businessName,
+                color: tema.texto,
+              }}
+            >
+              {nomeLoja}
+            </h1>
+          )}
+
+          {descricao && (
+            <p
+              style={{
+                ...styles.businessDescription,
+                color: tema.textoSecundario,
+              }}
+            >
+              {descricao}
+            </p>
+          )}
+
+          {mensagemBoasVindas && (
+            <div
+              style={{
+                ...styles.welcome,
+                background: tema.secundaria,
+                color: tema.destaque,
+                borderRadius: estiloBotao,
+              }}
+            >
+              {mensagemBoasVindas}
+            </div>
+          )}
+        </section>
+
+        {filiais.length > 1 && (
+          <section style={styles.branchSection}>
+            <label
+              style={{
+                ...styles.fieldLabel,
+                color: tema.texto,
+              }}
+            >
+              Escolha a unidade
+            </label>
+
+            <div style={styles.selectWrapper}>
+              <select
+                value={
+                  filialSelecionadaId || ''
+                }
+                onChange={(e) =>
+                  setFilialSelecionadaId(
+                    e.target.value,
+                  )
+                }
+                style={{
+                  ...styles.select,
+                  background: tema.card,
+                  color: tema.texto,
+                  borderColor:
+                    aparencia.tema === 'escuro'
+                      ? '#38423C'
+                      : '#DCE5DF',
+                  borderRadius: estiloBotao,
+                }}
+              >
+                {filiais.map((filial) => (
+                  <option
+                    key={filial.id}
+                    value={filial.id}
+                  >
+                    {filial.nome ||
+                      filial.codigo ||
+                      'Unidade'}
+                  </option>
+                ))}
+              </select>
+
+              <ChevronDown
+                size={18}
+                style={styles.selectIcon}
+              />
+            </div>
+          </section>
+        )}
+
+        <section style={styles.searchSection}>
+          <div
+            style={{
+              ...styles.searchBox,
+              background: tema.card,
+              borderColor:
+                aparencia.tema === 'escuro'
+                  ? '#38423C'
+                  : '#DCE5DF',
+              borderRadius: estiloBotao,
+            }}
+          >
+            <Search
+              size={19}
+              color={tema.textoSecundario}
+            />
+
+            <input
+              value={busca}
+              onChange={(e) =>
+                setBusca(e.target.value)
+              }
+              placeholder="Buscar produtos"
+              style={{
+                ...styles.searchInput,
+                color: tema.texto,
+              }}
+            />
+          </div>
+        </section>
+
+        {categorias.length > 0 && (
+          <section style={styles.categoriesSection}>
+            <div
+              style={styles.categoryScroll}
+            >
+              <button
+                type="button"
+                onClick={() =>
+                  setCategoriaSelecionada(null)
+                }
+                style={{
+                  ...styles.categoryButton,
+                  borderRadius: estiloBotao,
+                  background:
+                    !categoriaSelecionada
+                      ? tema.principal
+                      : tema.card,
+                  color:
+                    !categoriaSelecionada
+                      ? '#FFFFFF'
+                      : tema.texto,
+                  borderColor:
+                    !categoriaSelecionada
+                      ? tema.principal
+                      : '#DCE5DF',
+                }}
+              >
+                Todos
+              </button>
+
+              {categorias.map((categoria) => (
+                <button
+                  key={categoria.categoria_id}
+                  type="button"
+                  onClick={() =>
+                    setCategoriaSelecionada(
+                      categoria.categoria_id,
+                    )
+                  }
+                  style={{
+                    ...styles.categoryButton,
+                    borderRadius: estiloBotao,
+                    background:
+                      categoriaSelecionada ===
+                      categoria.categoria_id
+                        ? tema.principal
+                        : tema.card,
+                    color:
+                      categoriaSelecionada ===
+                      categoria.categoria_id
+                        ? '#FFFFFF'
+                        : tema.texto,
+                    borderColor:
+                      categoriaSelecionada ===
+                      categoria.categoria_id
+                        ? tema.principal
+                        : '#DCE5DF',
+                  }}
+                >
+                  {categoria.nome}
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {aparencia.layout_inicio !== 'inicio' &&
+          produtosDestaque.length > 0 &&
+          !busca &&
+          !categoriaSelecionada && (
+            <section style={styles.section}>
+              <div style={styles.sectionHeader}>
+                <div>
+                  <h2
+                    style={{
+                      ...styles.sectionTitle,
+                      color: tema.texto,
+                    }}
+                  >
+                    Destaques
+                  </h2>
+
+                  <p
+                    style={{
+                      ...styles.sectionSubtitle,
+                      color: tema.textoSecundario,
+                    }}
+                  >
+                    Produtos escolhidos pelo negócio
+                  </p>
+                </div>
+              </div>
+
+              <div style={styles.productGrid}>
+                {produtosDestaque.map(
+                  renderProduto,
                 )}
               </div>
+            </section>
+          )}
+
+        {aparencia.layout_inicio === 'inicio' &&
+          (descricao || mensagemBoasVindas) && (
+            <section style={styles.section}>
+              <div
+                style={{
+                  ...styles.aboutCard,
+                  ...estiloCard,
+                  background: tema.card,
+                  borderRadius: raio,
+                }}
+              >
+                <h2
+                  style={{
+                    ...styles.aboutTitle,
+                    color: tema.texto,
+                  }}
+                >
+                  Sobre o negócio
+                </h2>
+
+                {descricao && (
+                  <p
+                    style={{
+                      ...styles.aboutText,
+                      color: tema.textoSecundario,
+                    }}
+                  >
+                    {descricao}
+                  </p>
+                )}
+
+                {mensagemBoasVindas && (
+                  <p
+                    style={{
+                      ...styles.aboutText,
+                      color: tema.textoSecundario,
+                    }}
+                  >
+                    {mensagemBoasVindas}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
+        <section style={styles.section}>
+          <div style={styles.sectionHeader}>
+            <div>
+              <h2
+                style={{
+                  ...styles.sectionTitle,
+                  color: tema.texto,
+                }}
+              >
+                Produtos
+              </h2>
+
+              <p
+                style={{
+                  ...styles.sectionSubtitle,
+                  color: tema.textoSecundario,
+                }}
+              >
+                {produtosFiltrados.length}{' '}
+                {produtosFiltrados.length === 1
+                  ? 'produto'
+                  : 'produtos'}
+              </p>
             </div>
+          </div>
 
-            <div className="mt-4">
-              <h1 className="text-2xl font-bold tracking-tight text-[#202622]">
-                {nomeEmpresa}
-              </h1>
+          {produtosFiltrados.length > 0 ? (
+            <div style={styles.productGrid}>
+              {produtosFiltrados.map(
+                renderProduto,
+              )}
+            </div>
+          ) : (
+            <div
+              style={{
+                ...styles.emptyProducts,
+                background: tema.card,
+                borderRadius: raio,
+                color: tema.textoSecundario,
+              }}
+            >
+              Nenhum produto encontrado.
+            </div>
+          )}
+        </section>
 
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center rounded-full bg-[#eaf7ef] px-3 py-1 text-xs font-semibold text-[#0f6f38]">
-                  {empresa.status === 'ativa'
-                    ? 'Empresa ativa'
-                    : 'Vitrine'}
-                </span>
+        {(filialSelecionada ||
+          cidade ||
+          estado) && (
+          <section style={styles.section}>
+            <div
+              style={{
+                ...styles.locationCard,
+                ...estiloCard,
+                background: tema.card,
+                borderRadius: raio,
+              }}
+            >
+              <div
+                style={{
+                  ...styles.locationIcon,
+                  background: tema.secundaria,
+                  color: tema.principal,
+                }}
+              >
+                <MapPin size={22} />
+              </div>
 
-                {(empresa.cidade ||
-                  empresa.estado) && (
-                  <span className="inline-flex items-center gap-1 text-sm text-[#66706a]">
-                    <MapPin size={15} />
+              <div>
+                <h2
+                  style={{
+                    ...styles.locationTitle,
+                    color: tema.texto,
+                  }}
+                >
+                  Onde estamos
+                </h2>
 
-                    {[
-                      empresa.cidade,
-                      empresa.estado,
-                    ]
-                      .filter(Boolean)
-                      .join(' - ')}
+                {filialSelecionada?.nome && (
+                  <strong
+                    style={{
+                      ...styles.locationLine,
+                      color: tema.texto,
+                    }}
+                  >
+                    {filialSelecionada.nome}
+                  </strong>
+                )}
+
+                {filialSelecionada?.logradouro && (
+                  <span
+                    style={{
+                      ...styles.locationLine,
+                      color: tema.textoSecundario,
+                    }}
+                  >
+                    {filialSelecionada.logradouro}
+                    {filialSelecionada.numero
+                      ? `, ${filialSelecionada.numero}`
+                      : ''}
+                    {filialSelecionada.complemento
+                      ? ` - ${filialSelecionada.complemento}`
+                      : ''}
+                  </span>
+                )}
+
+                {filialSelecionada?.bairro && (
+                  <span
+                    style={{
+                      ...styles.locationLine,
+                      color: tema.textoSecundario,
+                    }}
+                  >
+                    {filialSelecionada.bairro}
+                  </span>
+                )}
+
+                {(cidade || estado) && (
+                  <span
+                    style={{
+                      ...styles.locationLine,
+                      color: tema.textoSecundario,
+                    }}
+                  >
+                    {cidade}
+                    {cidade && estado
+                      ? ' - '
+                      : ''}
+                    {estado}
                   </span>
                 )}
               </div>
             </div>
-          </div>
-        </header>
-
-        <main className="space-y-6 px-4 py-5 sm:px-6">
-          {empresa.descricao_publica?.trim() && (
-            <section className="rounded-3xl border border-[#e1e8e3] bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-bold text-[#202622]">
-                Sobre o negócio
-              </h2>
-
-              <p className="mt-3 whitespace-pre-line text-sm leading-6 text-[#66706a]">
-                {empresa.descricao_publica}
-              </p>
-            </section>
-          )}
-
-          {filiais.length > 0 && (
-            <section className="rounded-3xl border border-[#e1e8e3] bg-white p-5 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-[#202622]">
-                    Onde encontrar
-                  </h2>
-
-                  <p className="mt-1 text-sm text-[#66706a]">
-                    Escolha uma unidade.
-                  </p>
-                </div>
-
-                <MapPin
-                  size={22}
-                  className="text-[#159447]"
-                />
-              </div>
-
-              {filiais.length === 1 ? (
-                <div className="mt-4 rounded-2xl bg-[#f7f9f7] p-4">
-                  <p className="font-semibold text-[#202622]">
-                    {filiais[0].nome ||
-                      'Unidade principal'}
-                  </p>
-
-                  {montarEndereco(
-                    filiais[0]
-                  ) && (
-                    <p className="mt-1 text-sm leading-5 text-[#66706a]">
-                      {montarEndereco(
-                        filiais[0]
-                      )}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="mt-4 grid gap-2">
-                  {filiais.map((filial) => {
-                    const selecionada =
-                      filial.id ===
-                      filialSelecionadaId
-
-                    return (
-                      <button
-                        key={filial.id}
-                        type="button"
-                        onClick={() =>
-                          setFilialSelecionadaId(
-                            filial.id
-                          )
-                        }
-                        className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition ${
-                          selecionada
-                            ? 'border-[#159447] bg-[#eaf7ef]'
-                            : 'border-[#e1e8e3] bg-white'
-                        }`}
-                      >
-                        <div>
-                          <p className="font-semibold text-[#202622]">
-                            {filial.nome ||
-                              'Unidade'}
-                          </p>
-
-                          {montarEndereco(
-                            filial
-                          ) && (
-                            <p className="mt-1 text-sm leading-5 text-[#66706a]">
-                              {montarEndereco(
-                                filial
-                              )}
-                            </p>
-                          )}
-                        </div>
-
-                        <ChevronRight
-                          size={19}
-                          className={
-                            selecionada
-                              ? 'text-[#159447]'
-                              : 'text-[#9aa49e]'
-                          }
-                        />
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </section>
-          )}
-
-          <section>
-            <div className="mb-3">
-              <h2 className="text-xl font-bold text-[#202622]">
-                Encontre o que procura
-              </h2>
-
-              <p className="mt-1 text-sm text-[#66706a]">
-                Veja produtos e ofertas desta
-                vitrine.
-              </p>
-            </div>
-
-            <div className="relative">
-              <Search
-                size={19}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8a948e]"
-              />
-
-              <input
-                value={busca}
-                onChange={(event) =>
-                  setBusca(
-                    event.target.value
-                  )
-                }
-                placeholder="Buscar produto..."
-                className="h-12 w-full rounded-2xl border border-[#dbe5df] bg-white pl-11 pr-10 text-sm text-[#202622] outline-none transition focus:border-[#159447] focus:ring-4 focus:ring-[#159447]/10"
-              />
-
-              {busca && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setBusca('')
-                  }
-                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#66706a]"
-                  aria-label="Limpar busca"
-                >
-                  <X size={17} />
-                </button>
-              )}
-            </div>
           </section>
+        )}
+      </main>
 
-          {categoriasRaiz.length > 0 && (
-            <section>
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-[#202622]">
-                  Categorias
-                </h2>
+      {vitrine?.permitir_pedidos && (
+        <div
+          style={{
+            ...styles.bottomOrderBar,
+            background: tema.card,
+            borderTop: `1px solid ${
+              aparencia.tema === 'escuro'
+                ? '#2B342F'
+                : '#E3EAE5'
+            }`,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              /*
+               * O carrinho/pedido será conectado
+               * aqui posteriormente.
+               *
+               * O WhatsApp não aparece diretamente
+               * na página pública.
+               */
+              console.log(
+                'Abrir carrinho/pedido',
+              )
+            }}
+            style={{
+              ...styles.orderButton,
+              background: tema.principal,
+              borderRadius: estiloBotao,
+            }}
+          >
+            <ShoppingBag size={19} />
+            Fazer pedido
+          </button>
+        </div>
+      )}
 
-                {categoriaSelecionadaId && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCategoriaSelecionadaId(
-                        null
-                      )
-                    }
-                    className="text-sm font-semibold text-[#159447]"
-                  >
-                    Ver todas
-                  </button>
-                )}
-              </div>
+      <footer
+        style={{
+          ...styles.footer,
+          background: tema.card,
+          borderTop: `1px solid ${
+            aparencia.tema === 'escuro'
+              ? '#2B342F'
+              : '#E3EAE5'
+          }`,
+        }}
+      >
+        <strong style={styles.footerBrand}>
+          organiza
+        </strong>
 
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {categoriasRaiz.map(
-                  (categoria) => {
-                    const selecionada =
-                      categoria.categoria_id ===
-                      categoriaSelecionadaId
-
-                    return (
-                      <button
-                        key={
-                          categoria.categoria_id
-                        }
-                        type="button"
-                        onClick={() =>
-                          setCategoriaSelecionadaId(
-                            selecionada
-                              ? null
-                              : categoria.categoria_id
-                          )
-                        }
-                        className={`flex min-w-[130px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left transition ${
-                          selecionada
-                            ? 'border-[#159447] bg-[#eaf7ef]'
-                            : 'border-[#e1e8e3] bg-white'
-                        }`}
-                      >
-                        {categoria.imagem_url ? (
-                          <img
-                            src={
-                              categoria.imagem_url
-                            }
-                            alt={
-                              categoria.nome
-                            }
-                            className="h-24 w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-24 items-center justify-center bg-[#f0f6f1]">
-                            <Store
-                              size={25}
-                              className="text-[#159447]"
-                            />
-                          </div>
-                        )}
-
-                        <span className="p-3 text-sm font-semibold text-[#202622]">
-                          {categoria.nome}
-                        </span>
-                      </button>
-                    )
-                  }
-                )}
-              </div>
-            </section>
-          )}
-
-          {produtosDestaque.length > 0 &&
-            !busca &&
-            !categoriaSelecionadaId && (
-              <section>
-                <div className="mb-3">
-                  <h2 className="text-lg font-bold text-[#202622]">
-                    Destaques
-                  </h2>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                  {produtosDestaque.map(
-                    (produto) => {
-                      const imagem =
-                        obterImagemProduto(
-                          produto.id,
-                          fotos
-                        )
-
-                      const precoPromocional =
-                        produto.preco_promocional
-
-                      const temPromocao =
-                        precoPromocional !==
-                          null &&
-                        precoPromocional !==
-                          undefined &&
-                        Number(
-                          precoPromocional
-                        ) <
-                          Number(
-                            produto.preco ?? 0
-                          )
-
-                      return (
-                        <button
-                          key={produto.id}
-                          type="button"
-                          onClick={() =>
-                            setProdutoSelecionadoId(
-                              produto.id
-                            )
-                          }
-                          className="overflow-hidden rounded-3xl border border-[#e1e8e3] bg-white text-left shadow-sm transition active:scale-[0.99]"
-                        >
-                          <div className="aspect-square bg-[#f3f6f3]">
-                            {imagem ? (
-                              <img
-                                src={imagem}
-                                alt={
-                                  produto.nome
-                                }
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full items-center justify-center">
-                                <ShoppingBag
-                                  size={32}
-                                  className="text-[#a5aea8]"
-                                />
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="p-3">
-                            <p className="line-clamp-2 min-h-[40px] text-sm font-semibold text-[#202622]">
-                              {produto.nome}
-                            </p>
-
-                            {temPromocao ? (
-                              <div className="mt-2">
-                                <p className="text-xs text-[#8a948e] line-through">
-                                  {formatarPreco(
-                                    produto.preco
-                                  )}
-                                </p>
-
-                                <p className="text-base font-bold text-[#159447]">
-                                  {formatarPreco(
-                                    precoPromocional
-                                  )}
-                                </p>
-                              </div>
-                            ) : (
-                              <p className="mt-2 text-base font-bold text-[#159447]">
-                                {formatarPreco(
-                                  produto.preco
-                                )}
-                              </p>
-                            )}
-                          </div>
-                        </button>
-                      )
-                    }
-                  )}
-                </div>
-              </section>
-            )}
-
-          <section>
-            <div className="mb-3 flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-bold text-[#202622]">
-                  Produtos
-                </h2>
-
-                <p className="mt-1 text-sm text-[#66706a]">
-                  {produtosFiltrados.length}{' '}
-                  {produtosFiltrados.length ===
-                  1
-                    ? 'produto'
-                    : 'produtos'}
-                </p>
-              </div>
-            </div>
-
-            {produtosFiltrados.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-[#d7e0da] bg-white p-8 text-center">
-                <ShoppingBag
-                  size={34}
-                  className="mx-auto mb-3 text-[#9aa49e]"
-                />
-
-                <h3 className="font-semibold text-[#202622]">
-                  Nenhum produto encontrado
-                </h3>
-
-                <p className="mt-1 text-sm text-[#66706a]">
-                  Tente buscar outro produto
-                  ou selecionar outra
-                  categoria.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                {produtosFiltrados.map(
-                  (produto) => {
-                    const imagem =
-                      obterImagemProduto(
-                        produto.id,
-                        fotos
-                      )
-
-                    const precoPromocional =
-                      produto.preco_promocional
-
-                    const temPromocao =
-                      precoPromocional !==
-                        null &&
-                      precoPromocional !==
-                        undefined &&
-                      Number(
-                        precoPromocional
-                      ) <
-                        Number(
-                          produto.preco ?? 0
-                        )
-
-                    return (
-                      <button
-                        key={produto.id}
-                        type="button"
-                        onClick={() =>
-                          setProdutoSelecionadoId(
-                            produto.id
-                          )
-                        }
-                        className="overflow-hidden rounded-3xl border border-[#e1e8e3] bg-white text-left shadow-sm transition active:scale-[0.99]"
-                      >
-                        <div className="aspect-square bg-[#f3f6f3]">
-                          {imagem ? (
-                            <img
-                              src={imagem}
-                              alt={
-                                produto.nome
-                              }
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-full items-center justify-center">
-                              <ShoppingBag
-                                size={32}
-                                className="text-[#a5aea8]"
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="p-3">
-                          <p className="line-clamp-2 min-h-[40px] text-sm font-semibold text-[#202622]">
-                            {produto.nome}
-                          </p>
-
-                          {produto.descricao_curta && (
-                            <p className="mt-1 line-clamp-2 text-xs leading-4 text-[#66706a]">
-                              {
-                                produto.descricao_curta
-                              }
-                            </p>
-                          )}
-
-                          {temPromocao ? (
-                            <div className="mt-2">
-                              <p className="text-xs text-[#8a948e] line-through">
-                                {formatarPreco(
-                                  produto.preco
-                                )}
-                              </p>
-
-                              <p className="text-base font-bold text-[#159447]">
-                                {formatarPreco(
-                                  precoPromocional
-                                )}
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="mt-2 text-base font-bold text-[#159447]">
-                              {formatarPreco(
-                                produto.preco
-                              )}
-                            </p>
-                          )}
-
-                          {produto.unidade && (
-                            <p className="mt-1 text-xs text-[#8a948e]">
-                              por{' '}
-                              {produto.unidade}
-                            </p>
-                          )}
-                        </div>
-                      </button>
-                    )
-                  }
-                )}
-              </div>
-            )}
-          </section>
-
-          {filialSelecionada &&
-            montarEndereco(
-              filialSelecionada
-            ) && (
-              <section className="rounded-3xl border border-[#e1e8e3] bg-white p-5 shadow-sm">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eaf7ef]">
-                    <MapPin
-                      size={20}
-                      className="text-[#159447]"
-                    />
-                  </div>
-
-                  <div>
-                    <h2 className="font-bold text-[#202622]">
-                      Localização
-                    </h2>
-
-                    <p className="mt-1 text-sm leading-5 text-[#66706a]">
-                      {filialSelecionada.nome ||
-                        'Unidade'}
-                    </p>
-
-                    <p className="mt-1 text-sm leading-5 text-[#66706a]">
-                      {montarEndereco(
-                        filialSelecionada
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </section>
-            )}
-        </main>
-
-        <footer className="border-t border-[#e1e8e3] bg-white px-5 py-8 text-center">
-          <div className="text-lg font-bold tracking-tight text-[#202622]">
-            <span>| </span>
-            <span>organiza</span>
-            <span> |</span>
-          </div>
-
-          <p className="mt-1 text-sm text-[#66706a]">
-            Tecnologia para quem empreende
-          </p>
-        </footer>
-      </div>
+        <span
+          style={{
+            ...styles.footerText,
+            color: tema.textoSecundario,
+          }}
+        >
+          Tecnologia para quem empreende
+        </span>
+      </footer>
     </div>
   )
+}
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: '100vh',
+    width: '100%',
+    boxSizing: 'border-box',
+  },
+
+  loading: {
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#66706A',
+    fontSize: 16,
+  },
+
+  errorContainer: {
+    maxWidth: 560,
+    margin: '0 auto',
+    padding: '80px 24px',
+    textAlign: 'center',
+  },
+
+  errorTitle: {
+    margin: '0 0 10px',
+    fontSize: 25,
+    color: '#202622',
+  },
+
+  errorText: {
+    margin: '0 0 25px',
+    color: '#66706A',
+    lineHeight: 1.5,
+  },
+
+  topBar: {
+    position: 'sticky',
+    top: 0,
+    zIndex: 20,
+  },
+
+  topBarInner: {
+    maxWidth: 1180,
+    margin: '0 auto',
+    minHeight: 58,
+    padding: '0 20px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  organizaLabel: {
+    marginLeft: 'auto',
+    fontWeight: 800,
+    fontSize: 17,
+    color: '#159447',
+    letterSpacing: '-0.3px',
+  },
+
+  backButton: {
+    border: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    padding: '8px 0',
+    fontSize: 14,
+    cursor: 'pointer',
+  },
+
+  banner: {
+    width: '100%',
+    maxHeight: 360,
+    overflow: 'hidden',
+  },
+
+  bannerImage: {
+    width: '100%',
+    height: '100%',
+    maxHeight: 360,
+    objectFit: 'cover',
+    display: 'block',
+  },
+
+  main: {
+    maxWidth: 1180,
+    margin: '0 auto',
+    padding: '24px 20px 110px',
+    boxSizing: 'border-box',
+  },
+
+  businessHeader: {
+    padding: 24,
+    textAlign: 'center',
+    marginBottom: 22,
+  },
+
+  logoWrapper: {
+    width: 92,
+    height: 92,
+    margin: '0 auto 14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+
+  logo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'contain',
+  },
+
+  businessName: {
+    margin: 0,
+    fontSize: 29,
+    lineHeight: 1.15,
+    fontWeight: 750,
+    letterSpacing: '-0.6px',
+  },
+
+  businessDescription: {
+    maxWidth: 680,
+    margin: '10px auto 0',
+    fontSize: 15,
+    lineHeight: 1.6,
+  },
+
+  welcome: {
+    maxWidth: 680,
+    margin: '17px auto 0',
+    padding: '11px 15px',
+    fontSize: 14,
+    lineHeight: 1.5,
+  },
+
+  branchSection: {
+    marginBottom: 18,
+  },
+
+  fieldLabel: {
+    display: 'block',
+    fontSize: 13,
+    fontWeight: 650,
+    marginBottom: 7,
+  },
+
+  selectWrapper: {
+    position: 'relative',
+  },
+
+  select: {
+    width: '100%',
+    appearance: 'none',
+    padding: '12px 42px 12px 13px',
+    fontSize: 14,
+    border: '1px solid',
+    outline: 'none',
+  },
+
+  selectIcon: {
+    position: 'absolute',
+    right: 13,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    pointerEvents: 'none',
+  },
+
+  searchSection: {
+    marginBottom: 18,
+  },
+
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    padding: '12px 14px',
+    border: '1px solid',
+  },
+
+  searchInput: {
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    background: 'transparent',
+    fontSize: 15,
+    minWidth: 0,
+  },
+
+  categoriesSection: {
+    marginBottom: 25,
+    overflow: 'hidden',
+  },
+
+  categoryScroll: {
+    display: 'flex',
+    gap: 9,
+    overflowX: 'auto',
+    paddingBottom: 4,
+  },
+
+  categoryButton: {
+    flexShrink: 0,
+    padding: '9px 14px',
+    border: '1px solid',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+
+  section: {
+    marginBottom: 30,
+  },
+
+  sectionHeader: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+
+  sectionTitle: {
+    margin: 0,
+    fontSize: 21,
+    letterSpacing: '-0.3px',
+  },
+
+  sectionSubtitle: {
+    margin: '4px 0 0',
+    fontSize: 13,
+  },
+
+  productGrid: {
+    display: 'grid',
+    gridTemplateColumns:
+      'repeat(auto-fill, minmax(190px, 1fr))',
+    gap: 14,
+  },
+
+  productCard: {
+    padding: 9,
+    textAlign: 'left',
+    cursor: 'pointer',
+    overflow: 'hidden',
+    transition:
+      'transform 0.15s ease, box-shadow 0.15s ease',
+  },
+
+  productImage: {
+    width: '100%',
+    aspectRatio: '1 / 1',
+    overflow: 'hidden',
+  },
+
+  productImageImg: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+
+  noImage: {
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 13,
+  },
+
+  productInfo: {
+    padding: '12px 5px 6px',
+  },
+
+  productName: {
+    margin: 0,
+    fontSize: 15,
+    lineHeight: 1.3,
+    fontWeight: 700,
+  },
+
+  productDescription: {
+    margin: '6px 0 0',
+    fontSize: 12.5,
+    lineHeight: 1.45,
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    overflow: 'hidden',
+  },
+
+  priceArea: {
+    marginTop: 10,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+
+  oldPrice: {
+    fontSize: 12,
+    textDecoration: 'line-through',
+  },
+
+  price: {
+    fontSize: 17,
+    marginTop: 2,
+  },
+
+  aboutCard: {
+    padding: 21,
+  },
+
+  aboutTitle: {
+    margin: 0,
+    fontSize: 19,
+  },
+
+  aboutText: {
+    margin: '10px 0 0',
+    fontSize: 14,
+    lineHeight: 1.65,
+  },
+
+  emptyProducts: {
+    padding: 35,
+    textAlign: 'center',
+    fontSize: 14,
+  },
+
+  locationCard: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 14,
+    padding: 20,
+  },
+
+  locationIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+
+  locationTitle: {
+    margin: '0 0 7px',
+    fontSize: 18,
+  },
+
+  locationLine: {
+    display: 'block',
+    fontSize: 13.5,
+    lineHeight: 1.55,
+  },
+
+  bottomOrderBar: {
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    padding: '11px 20px',
+  },
+
+  orderButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    maxWidth: 520,
+    margin: '0 auto',
+    border: 'none',
+    color: '#FFFFFF',
+    padding: '13px 18px',
+    fontSize: 15,
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+
+  footer: {
+    padding: '25px 20px 30px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    textAlign: 'center',
+  },
+
+  footerBrand: {
+    fontSize: 18,
+    color: '#159447',
+  },
+
+  footerText: {
+    fontSize: 12.5,
+  },
 }
