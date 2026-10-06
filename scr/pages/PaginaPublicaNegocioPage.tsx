@@ -659,13 +659,11 @@ export default function PaginaPublicaNegocioPage({
 
   if (produtoSelecionado) {
     return (
-      <ProdutoDetalhePage
-        produto={produtoSelecionado}
-        empresaId={empresaId}
-        onVoltar={() =>
-          setProdutoSelecionado(null)
-        }
-      />
+  <ProdutoDetalhePage
+  produtoId={produtoSelecionado.id}
+  empresaId={empresaId}
+  onVoltar={() => setProdutoSelecionado(null)}
+/>
     )
   }
 
