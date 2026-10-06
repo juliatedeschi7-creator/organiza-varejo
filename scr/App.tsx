@@ -12,6 +12,7 @@ import PaginaPublicaNegocioPage from './pages/PaginaPublicaNegocioPage'
 import EditarEmpresaPage from './pages/EditarEmpresaPage'
 import EditarEnderecoPage from './pages/EditarEnderecoPage'
 import PersonalizacaoNegocioPage from './pages/PersonalizacaoNegocioPage'
+import VitrinePublicaSlugPage from './pages/VitrinePublicaSlugPage'
 
 type Page =
   | 'login'
@@ -26,7 +27,33 @@ type Page =
   | 'editar-endereco'
   | 'personalizacao'
 
+function obterSlugDaUrl() {
+  const caminho = window.location.pathname
+    .replace(/^\/+|\/+$/g, '')
+
+  if (!caminho) {
+    return null
+  }
+
+  const partes = caminho.split('/')
+
+  if (partes.length !== 1) {
+    return null
+  }
+
+  const slug = decodeURIComponent(partes[0]).trim()
+
+  if (!slug) {
+    return null
+  }
+
+  return slug.toLowerCase()
+}
+
 export default function App() {
+  const slugPublico = obterSlugDaUrl()
+  const ehVitrinePublica = Boolean(slugPublico)
+
   const [page, setPage] = useState<Page>('login')
   const [empresaId, setEmpresaId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -35,6 +62,24 @@ export default function App() {
     let montado = true
 
     async function iniciar() {
+      /*
+       * Uma vitrine pública não depende de autenticação.
+       *
+       * Se a pessoa entrou diretamente em:
+       *
+       * /mariamagnolia
+       *
+       * deixamos a VitrinePublicaSlugPage localizar a empresa
+       * pelo slug.
+       */
+      if (ehVitrinePublica) {
+        if (montado) {
+          setCarregando(false)
+        }
+
+        return
+      }
+
       const {
         data: { session },
       } = await supabase.auth.getSession()
@@ -53,12 +98,10 @@ export default function App() {
       /*
        * A conta pertence ao USUÁRIO, não a uma única empresa.
        *
-       * Por isso, depois do login sempre vamos para a InicioPage.
+       * Depois do login sempre vamos para a InicioPage.
        *
-       * A InicioPage é responsável por mostrar:
-       * - empresas que pertencem ao usuário
-       * - opção de cadastrar uma empresa
-       * - opção de explorar lojas como cliente
+       * A InicioPage consulta membros_empresa e apresenta
+       * todas as empresas às quais o usuário tem acesso.
        */
       setEmpresaId(null)
       setPage('inicio')
@@ -66,6 +109,16 @@ export default function App() {
     }
 
     iniciar()
+
+    /*
+     * Não precisamos observar mudanças de autenticação
+     * enquanto estamos em uma vitrine pública.
+     */
+    if (ehVitrinePublica) {
+      return () => {
+        montado = false
+      }
+    }
 
     const {
       data: { subscription },
@@ -81,17 +134,6 @@ export default function App() {
           return
         }
 
-        /*
-         * Não procuramos mais uma empresa pelo e-mail.
-         *
-         * O usuário pode ter:
-         * - nenhuma empresa
-         * - uma empresa
-         * - várias empresas
-         *
-         * A InicioPage consulta membros_empresa e apresenta
-         * todas as empresas às quais o usuário tem acesso.
-         */
         setEmpresaId(null)
         setPage('inicio')
       },
@@ -101,61 +143,22 @@ export default function App() {
       montado = false
       subscription.unsubscribe()
     }
-  }, [])
+  }, [ehVitrinePublica])
 
-  function handleLoginSuccess() {
-    setEmpresaId(null)
-    setPage('inicio')
-  }
-
-  function handleCadastroSucesso() {
-    /*
-     * Depois que a conta é criada, o usuário volta para o login.
-     *
-     * O próprio fluxo de autenticação da CadastroPage continua
-     * responsável por informar quando a conta estiver pronta.
-     */
-    setPage('login')
-  }
-
-  function handleNegocioCriado(id: string) {
-    /*
-     * Uma nova empresa acabou de ser criada.
-     *
-     * Entramos diretamente nela para que o proprietário possa
-     * continuar a configuração.
-     */
-    setEmpresaId(id)
-    setPage('negocio')
-  }
-
-  function handleAbrirEmpresa(id: string) {
-    /*
-     * A pessoa escolheu uma das empresas exibidas na InicioPage.
-     */
-    setEmpresaId(id)
-    setPage('negocio')
-  }
-
-  function voltarParaInicio() {
-    setEmpresaId(null)
-    setPage('inicio')
-  }
-
-  function voltarParaNegocio() {
-    if (empresaId) {
-      setPage('negocio')
-      return
-    }
-
-    setPage('inicio')
-  }
-
-  async function handleSair() {
-    await supabase.auth.signOut()
-
-    setEmpresaId(null)
-    setPage('login')
+  /*
+   * ============================================
+   * VITRINE PÚBLICA
+   * ============================================
+   *
+   * Esta parte vem antes do login porque a vitrine
+   * deve ser acessível por qualquer pessoa.
+   */
+  if (ehVitrinePublica && slugPublico) {
+    return (
+      <VitrinePublicaSlugPage
+        slug={slugPublico}
+      />
+    )
   }
 
   if (carregando) {
@@ -178,7 +181,10 @@ export default function App() {
     return (
       <LoginPage
         onCriarConta={() => setPage('cadastro')}
-        onLoginSuccess={handleLoginSuccess}
+        onLoginSuccess={() => {
+          setEmpresaId(null)
+          setPage('inicio')
+        }}
       />
     )
   }
@@ -196,8 +202,7 @@ export default function App() {
       <InicioPage
         onExplorar={() => {
           /*
-           * O destino do Mercado Local será conectado aqui
-           * quando a página correspondente estiver definida.
+           * O Mercado Local será conectado aqui.
            */
           console.log('Abrir Mercado Local')
         }}
@@ -205,14 +210,12 @@ export default function App() {
           setPage('cadastrar-negocio')
         }}
         onAgoraNao={() => {
-          /*
-           * Por enquanto, "Agora não" permanece na experiência
-           * inicial. Quando tivermos a tela pública/entrada do
-           * Organiza definida, podemos conectar esse caminho.
-           */
           setPage('inicio')
         }}
-        onAbrirEmpresa={handleAbrirEmpresa}
+        onAbrirEmpresa={(id) => {
+          setEmpresaId(id)
+          setPage('negocio')
+        }}
       />
     )
   }
@@ -220,8 +223,14 @@ export default function App() {
   if (page === 'cadastrar-negocio') {
     return (
       <CadastrarNegocioPage
-        onVoltar={voltarParaInicio}
-        onCadastroSucesso={handleNegocioCriado}
+        onVoltar={() => {
+          setEmpresaId(null)
+          setPage('inicio')
+        }}
+        onCadastroSucesso={(id) => {
+          setEmpresaId(id)
+          setPage('negocio')
+        }}
       />
     )
   }
@@ -230,15 +239,35 @@ export default function App() {
    * Todas as telas abaixo dependem de uma empresa selecionada.
    */
   if (!empresaId) {
-    setPage('inicio')
-    return null
+    return (
+      <InicioPage
+        onExplorar={() => {
+          console.log('Abrir Mercado Local')
+        }}
+        onCadastrarNegocio={() => {
+          setPage('cadastrar-negocio')
+        }}
+        onAgoraNao={() => {
+          setPage('inicio')
+        }}
+        onAbrirEmpresa={(id) => {
+          setEmpresaId(id)
+          setPage('negocio')
+        }}
+      />
+    )
   }
 
   if (page === 'negocio') {
     return (
       <NegocioPage
         empresaId={empresaId}
-        onSair={handleSair}
+        onSair={async () => {
+          await supabase.auth.signOut()
+
+          setEmpresaId(null)
+          setPage('login')
+        }}
         onAbrirVitrine={() => {
           setPage('pagina-publica')
         }}
@@ -265,7 +294,9 @@ export default function App() {
     return (
       <ProdutosPage
         empresaId={empresaId}
-        onVoltar={voltarParaNegocio}
+        onVoltar={() => {
+          setPage('negocio')
+        }}
       />
     )
   }
@@ -274,7 +305,9 @@ export default function App() {
     return (
       <CategoriasPage
         empresaId={empresaId}
-        onVoltar={voltarParaNegocio}
+        onVoltar={() => {
+          setPage('negocio')
+        }}
       />
     )
   }
@@ -283,7 +316,9 @@ export default function App() {
     return (
       <EditarEmpresaPage
         empresaId={empresaId}
-        onVoltar={voltarParaNegocio}
+        onVoltar={() => {
+          setPage('negocio')
+        }}
       />
     )
   }
@@ -292,7 +327,9 @@ export default function App() {
     return (
       <EditarEnderecoPage
         empresaId={empresaId}
-        onVoltar={voltarParaNegocio}
+        onVoltar={() => {
+          setPage('negocio')
+        }}
       />
     )
   }
@@ -301,7 +338,9 @@ export default function App() {
     return (
       <PersonalizacaoNegocioPage
         empresaId={empresaId}
-        onVoltar={voltarParaNegocio}
+        onVoltar={() => {
+          setPage('negocio')
+        }}
       />
     )
   }
@@ -310,14 +349,13 @@ export default function App() {
     return (
       <PaginaPublicaNegocioPage
         empresaId={empresaId}
-        onVoltar={voltarParaNegocio}
+        onVoltar={() => {
+          setPage('negocio')
+        }}
       />
     )
   }
 
-  /*
-   * Fallback de segurança.
-   */
   return (
     <InicioPage
       onExplorar={() => {
@@ -329,7 +367,10 @@ export default function App() {
       onAgoraNao={() => {
         setPage('inicio')
       }}
-      onAbrirEmpresa={handleAbrirEmpresa}
+      onAbrirEmpresa={(id) => {
+        setEmpresaId(id)
+        setPage('negocio')
+      }}
     />
   )
 }
