@@ -8,6 +8,9 @@ interface NegocioPageProps {
   onAbrirVitrine: () => void
   onAbrirProdutos: () => void
   onAbrirCategorias: () => void
+  onAbrirEditarEmpresa: () => void
+  onAbrirEditarEndereco: () => void
+  onAbrirPersonalizacao: () => void
 }
 
 interface Empresa {
@@ -49,6 +52,9 @@ export default function NegocioPage({
   onAbrirVitrine,
   onAbrirProdutos,
   onAbrirCategorias,
+  onAbrirEditarEmpresa,
+  onAbrirEditarEndereco,
+  onAbrirPersonalizacao,
 }: NegocioPageProps) {
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [filial, setFilial] = useState<Filial | null>(null)
@@ -433,6 +439,7 @@ export default function NegocioPage({
             <button
               type="button"
               className="negocio-check-item"
+              onClick={onAbrirEditarEmpresa}
             >
               <span className="negocio-check-icon">
                 ✓
@@ -456,6 +463,7 @@ export default function NegocioPage({
             <button
               type="button"
               className="negocio-check-item"
+              onClick={onAbrirEditarEndereco}
             >
               <span className="negocio-check-icon">
                 ✓
@@ -480,6 +488,7 @@ export default function NegocioPage({
             <button
               type="button"
               className="negocio-check-item"
+              onClick={onAbrirEditarEmpresa}
             >
               <span className="negocio-check-icon">
                 ✓
@@ -504,6 +513,7 @@ export default function NegocioPage({
             <button
               type="button"
               className="negocio-check-item"
+              onClick={onAbrirPersonalizacao}
             >
               <span className="negocio-check-icon">
                 ✓
@@ -684,7 +694,11 @@ export default function NegocioPage({
             </div>
           </div>
 
-          <div className="negocio-unit-card">
+          <button
+            type="button"
+            className="negocio-unit-card"
+            onClick={onAbrirEditarEndereco}
+          >
             <div className="negocio-unit-icon">
               ⌂
             </div>
@@ -711,7 +725,11 @@ export default function NegocioPage({
                 </span>
               )}
             </div>
-          </div>
+
+            <span className="negocio-unit-arrow">
+              ›
+            </span>
+          </button>
         </section>
 
         <section className="negocio-vitrine-cta">
@@ -818,6 +836,75 @@ export default function NegocioPage({
               className="negocio-menu-item"
               onClick={() => {
                 setMenuAberto(false)
+                onAbrirEditarEmpresa()
+              }}
+            >
+              <span>⌁</span>
+
+              <div>
+                <strong>
+                  Dados do negócio
+                </strong>
+
+                <small>
+                  Nome, contatos e informações da empresa
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirEditarEndereco()
+              }}
+            >
+              <span>⌂</span>
+
+              <div>
+                <strong>
+                  Endereço e unidade
+                </strong>
+
+                <small>
+                  Onde seus clientes podem encontrar você
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirPersonalizacao()
+              }}
+            >
+              <span>◉</span>
+
+              <div>
+                <strong>
+                  Personalizar vitrine
+                </strong>
+
+                <small>
+                  Escolha como seu negócio será apresentado
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
                 onAbrirProdutos()
               }}
             >
@@ -885,9 +972,10 @@ export default function NegocioPage({
             <button
               type="button"
               className="negocio-menu-item"
-              onClick={() =>
+              onClick={() => {
                 setMenuAberto(false)
-              }
+                onAbrirEditarEmpresa()
+              }}
             >
               <span>⚙</span>
 
@@ -897,7 +985,7 @@ export default function NegocioPage({
                 </strong>
 
                 <small>
-                  Configure seu negócio
+                  Configure os dados do seu negócio
                 </small>
               </div>
 
@@ -1359,6 +1447,7 @@ export default function NegocioPage({
         }
 
         .negocio-unit-card {
+          width: 100%;
           display: flex;
           align-items: flex-start;
           gap: 16px;
@@ -1366,6 +1455,8 @@ export default function NegocioPage({
           background: #fff;
           border: 1px solid #e8e8e5;
           border-radius: 20px;
+          text-align: left;
+          cursor: pointer;
         }
 
         .negocio-unit-icon {
@@ -1382,6 +1473,7 @@ export default function NegocioPage({
 
         .negocio-unit-content {
           min-width: 0;
+          flex: 1;
         }
 
         .negocio-unit-content strong {
@@ -1399,6 +1491,13 @@ export default function NegocioPage({
         .negocio-unit-content span {
           color: #aaa;
           font-size: 12px;
+        }
+
+        .negocio-unit-arrow {
+          color: #aaa;
+          font-size: 24px;
+          line-height: 1;
+          padding-top: 7px;
         }
 
         .negocio-vitrine-cta {
