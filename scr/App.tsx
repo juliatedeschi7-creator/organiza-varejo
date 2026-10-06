@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+
 import LoginPage from './pages/LoginPage'
 import CadastroPage from './pages/CadastroPage'
 import CadastrarNegocioPage from './pages/CadastrarNegocioPage'
@@ -28,15 +29,56 @@ export default function App() {
   const [empresaId, setEmpresaId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
 
-  useEffect(() => {
-    async function verificarSessao() {
-      setCarregando(true)
+  async function carregarEmpresaDoUsuario() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
 
+    if (!session?.user?.email) {
+      setEmpresaId(null)
+      setPage('login')
+      setCarregando(false)
+      return
+    }
+
+    const { data: empresa, error } = await supabase
+      .from('empresas')
+      .select('id')
+      .eq('email', session.user.email)
+      .maybeSingle()
+
+    if (error) {
+      console.error('Erro ao localizar empresa:', error)
+      setEmpresaId(null)
+      setPage('cadastrar-negocio')
+      setCarregando(false)
+      return
+    }
+
+    if (empresa?.id) {
+      setEmpresaId(empresa.id)
+      setPage('negocio')
+    } else {
+      setEmpresaId(null)
+      setPage('cadastrar-negocio')
+    }
+
+    setCarregando(false)
+  }
+
+  useEffect(() => {
+    let montado = true
+
+    async function iniciar() {
       const {
         data: { session },
       } = await supabase.auth.getSession()
 
-      if (!session?.user) {
+      if (!montado) {
+        return
+      }
+
+      if (!session?.user?.email) {
         setEmpresaId(null)
         setPage('login')
         setCarregando(false)
@@ -46,18 +88,17 @@ export default function App() {
       const { data: empresa, error } = await supabase
         .from('empresas')
         .select('id')
-        .eq('email', session.user.email ?? '')
-        .limit(1)
+        .eq('email', session.user.email)
         .maybeSingle()
 
-      if (error) {
-        console.error(
-          'Erro ao localizar empresa da sessão:',
-          error
-        )
+      if (!montado) {
+        return
+      }
 
+      if (error) {
+        console.error('Erro ao carregar empresa:', error)
         setEmpresaId(null)
-        setPage('login')
+        setPage('cadastrar-negocio')
         setCarregando(false)
         return
       }
@@ -73,13 +114,17 @@ export default function App() {
       setCarregando(false)
     }
 
-    verificarSessao()
+    iniciar()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        if (!session?.user) {
+        if (!montado) {
+          return
+        }
+
+        if (!session?.user?.email) {
           setEmpresaId(null)
           setPage('login')
           return
@@ -88,18 +133,21 @@ export default function App() {
         const { data: empresa, error } = await supabase
           .from('empresas')
           .select('id')
-          .eq('email', session.user.email ?? '')
-          .limit(1)
+          .eq('email', session.user.email)
           .maybeSingle()
+
+        if (!montado) {
+          return
+        }
 
         if (error) {
           console.error(
             'Erro ao verificar empresa após autenticação:',
-            error
+            error,
           )
 
           setEmpresaId(null)
-          setPage('login')
+          setPage('cadastrar-negocio')
           return
         }
 
@@ -110,46 +158,64 @@ export default function App() {
           setEmpresaId(null)
           setPage('cadastrar-negocio')
         }
-      }
+      },
     )
 
     return () => {
+      montado = false
       subscription.unsubscribe()
     }
   }, [])
 
-  function voltarParaNegocio() {
+  async function handleLoginSuccess() {
+    await carregarEmpresaDoUsuario()
+  }
+
+  function handleCadastroSucesso() {
+    setPage('login')
+  }
+
+  function handleNegocioCriado(id: string) {
+    setEmpresaId(id)
     setPage('negocio')
+  }
+
+  async function handleSair() {
+    await supabase.auth.signOut()
+    setEmpresaId(null)
+    setPage('login')
+  }
+
+  function voltarParaNegocio() {
+    if (empresaId) {
+      setPage('negocio')
+      return
+    }
+
+    setPage('login')
   }
 
   if (carregando) {
     return (
-      <div
+      <main
         style={{
           minHeight: '100vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#f7f7f5',
-          color: '#222',
-          fontFamily: 'Arial, sans-serif',
+          padding: '24px',
         }}
       >
-        Carregando...
-      </div>
+        <p>Carregando...</p>
+      </main>
     )
   }
 
   if (page === 'login') {
     return (
       <LoginPage
-        onEntrar={(id) => {
-          setEmpresaId(id)
-          setPage('negocio')
-        }}
-        onCadastrar={() => {
-          setPage('cadastro')
-        }}
+        onCriarConta={() => setPage('cadastro')}
+        onLoginSuccess={handleLoginSuccess}
       />
     )
   }
@@ -157,12 +223,7 @@ export default function App() {
   if (page === 'cadastro') {
     return (
       <CadastroPage
-        onVoltar={() => {
-          setPage('login')
-        }}
-        onCadastroConcluido={() => {
-          setPage('cadastrar-negocio')
-        }}
+        onVoltarLogin={() => setPage('login')}
       />
     )
   }
@@ -170,31 +231,26 @@ export default function App() {
   if (page === 'cadastrar-negocio') {
     return (
       <CadastrarNegocioPage
-        onVoltar={() => {
-          setPage('login')
-        }}
-        onNegocioCriado={(id) => {
-          setEmpresaId(id)
-          setPage('negocio')
-        }}
+        onVoltar={() => setPage('login')}
+        onCadastroSucesso={handleNegocioCriado}
       />
     )
   }
 
   if (!empresaId) {
-    setPage('login')
-    return null
+    return (
+      <LoginPage
+        onCriarConta={() => setPage('cadastro')}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    )
   }
 
   if (page === 'negocio') {
     return (
       <NegocioPage
         empresaId={empresaId}
-        onSair={async () => {
-          await supabase.auth.signOut()
-          setEmpresaId(null)
-          setPage('login')
-        }}
+        onSair={handleSair}
         onAbrirVitrine={() => {
           setPage('pagina-publica')
         }}
@@ -271,5 +327,10 @@ export default function App() {
     )
   }
 
-  return null
+  return (
+    <LoginPage
+      onCriarConta={() => setPage('cadastro')}
+      onLoginSuccess={handleLoginSuccess}
+    />
+  )
 }
