@@ -1,34 +1,38 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  ArrowLeft,
-  ChevronDown,
-  MapPin,
-  Search,
-  ShoppingBag,
-} from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import ProdutoDetalhePage from './ProdutoDetalhePage'
+import { Logo } from '../components/Logo'
 
-interface PaginaPublicaNegocioPageProps {
+interface NegocioPageProps {
   empresaId: string
-  onVoltar?: () => void
+  onSair: () => void
+  onAbrirVitrine: () => void
+  onAbrirProdutos: () => void
+  onAbrirCategorias: () => void
+  onAbrirEditarEmpresa: () => void
+  onAbrirEditarEndereco: () => void
+  onAbrirPersonalizacao: () => void
 }
 
 interface Empresa {
   id: string
-  nome_fantasia: string | null
-  slug: string | null
+  nome_fantasia: string
+  razao_social: string | null
+  documento: string | null
+  slug: string
+  email: string | null
+  telefone: string | null
+  whatsapp: string | null
   logo_url: string | null
   banner_url: string | null
   cidade: string | null
   estado: string | null
-  descricao_publica: string | null
+  status: string
 }
 
 interface Filial {
   id: string
   empresa_id: string
-  nome: string | null
+  nome: string
   codigo: string | null
   telefone: string | null
   whatsapp: string | null
@@ -39,1667 +43,1981 @@ interface Filial {
   bairro: string | null
   cidade: string | null
   estado: string | null
-  latitude: number | null
-  longitude: number | null
   ativa: boolean
 }
 
 interface Vitrine {
   id: string
   empresa_id: string
-  filial_id: string | null
-  nome_exibicao: string | null
-  descricao: string | null
-  slug: string | null
-  logo_url: string | null
-  banner_url: string | null
-  cor_principal: string | null
-  cor_secundaria: string | null
-  cor_destaque: string | null
-  mensagem_boas_vindas: string | null
-  mensagem_fechado: string | null
-  mostrar_precos: boolean
-  permitir_pedidos: boolean
-  permitir_favoritos: boolean
-  permitir_compartilhamento: boolean
   ativo: boolean
-  fuso_horario: string
 }
 
 interface VitrineAparencia {
-  vitrine_id: string
-  fonte: string | null
-  estilo_botoes: string | null
-  estilo_cards: string | null
-  raio_bordas: number | null
-  mostrar_logo: boolean
-  mostrar_nome_loja: boolean
-  layout_inicio: string | null
-  tema: string | null
-}
-
-interface Categoria {
-  categoria_id: string
-  empresa_id: string
-  categoria_pai_id: string | null
-  nome: string
-  slug: string
-  descricao: string | null
-  imagem_url: string | null
-  ordem: number
-}
-
-interface Produto {
   id: string
-  empresa_id: string
-  categoria_id: string | null
-  marca_id: string | null
-  nome: string
-  slug: string
-  descricao: string | null
-  descricao_curta: string | null
-  sku: string | null
-  codigo_barras: string | null
-  codigo_interno: string | null
-  unidade: string
-  vendido_por_peso: boolean
-  vendido_por_medida: boolean
-  preco: number
-  preco_promocional: number | null
-  custo: number | null
-  destaque_vitrine: boolean
-  visivel_vitrine: boolean
-  ativo: boolean
-  controla_estoque: boolean
-  informacoes_adicionais: Record<string, unknown> | null
-  meta_titulo: string | null
-  meta_descricao: string | null
-  created_at: string
-  updated_at: string
-  promocao_inicio: string | null
-  promocao_fim: string | null
-  unidade_estoque_id: string | null
-  unidade_venda_id: string | null
-  unidade_compra_id: string | null
-  permite_venda_fracionada: boolean
-  permite_compra_fracionada: boolean
-  permite_consumo_fracionada: boolean
+  vitrine_id: string
 }
 
-interface FotoProduto {
-  foto_id: string
-  produto_id: string
-  variacao_id: string | null
-  url: string
-  ordem: number
-  principal: boolean
-  alt_text: string | null
+interface Checklist {
+  dadosPrincipais: boolean
+  endereco: boolean
+  logo: boolean
+  personalizacao: boolean
+  produtos: boolean
 }
 
-interface PropsTema {
-  principal: string
-  secundaria: string
-  destaque: string
-  fundo: string
-  texto: string
-  textoSecundario: string
-  card: string
-}
-
-const aparenciaPadrao: VitrineAparencia = {
-  vitrine_id: '',
-  fonte: null,
-  estilo_botoes: 'arredondado',
-  estilo_cards: 'suave',
-  raio_bordas: 12,
-  mostrar_logo: true,
-  mostrar_nome_loja: true,
-  layout_inicio: 'catalogo',
-  tema: 'claro',
-}
-
-export default function PaginaPublicaNegocioPage({
+export default function NegocioPage({
   empresaId,
-  onVoltar,
-}: PaginaPublicaNegocioPageProps) {
+  onSair,
+  onAbrirVitrine,
+  onAbrirProdutos,
+  onAbrirCategorias,
+  onAbrirEditarEmpresa,
+  onAbrirEditarEndereco,
+  onAbrirPersonalizacao,
+}: NegocioPageProps) {
   const [empresa, setEmpresa] = useState<Empresa | null>(null)
-  const [vitrine, setVitrine] = useState<Vitrine | null>(null)
-  const [aparencia, setAparencia] =
-    useState<VitrineAparencia>(aparenciaPadrao)
-
-  const [filiais, setFiliais] = useState<Filial[]>([])
-  const [filialSelecionadaId, setFilialSelecionadaId] =
-    useState<string | null>(null)
-
-  const [categorias, setCategorias] = useState<Categoria[]>([])
-  const [produtos, setProdutos] = useState<Produto[]>([])
-  const [fotos, setFotos] = useState<FotoProduto[]>([])
-
-  const [busca, setBusca] = useState('')
-  const [categoriaSelecionada, setCategoriaSelecionada] =
-    useState<string | null>(null)
-
-  const [produtoSelecionado, setProdutoSelecionado] =
-    useState<Produto | null>(null)
-
+  const [filial, setFilial] = useState<Filial | null>(null)
   const [carregando, setCarregando] = useState(true)
-  const [erro, setErro] = useState('')
+  const [menuAberto, setMenuAberto] = useState(false)
+
+  const [checklist, setChecklist] = useState<Checklist>({
+    dadosPrincipais: false,
+    endereco: false,
+    logo: false,
+    personalizacao: false,
+    produtos: false,
+  })
+
+  const [carregandoChecklist, setCarregandoChecklist] =
+    useState(true)
 
   useEffect(() => {
-    carregarPagina()
-  }, [empresaId])
-
-  async function carregarPagina() {
-    try {
+    async function carregarNegocio() {
       setCarregando(true)
-      setErro('')
+      setCarregandoChecklist(true)
 
-      const { data: empresaData, error: empresaError } =
-        await supabase
-          .from('empresas')
-          .select(`
-            id,
-            nome_fantasia,
-            slug,
-            logo_url,
-            banner_url,
-            cidade,
-            estado,
-            descricao_publica
-          `)
-          .eq('id', empresaId)
-          .maybeSingle()
+      try {
+        const { data: empresaData, error: empresaError } =
+          await supabase
+            .from('empresas')
+            .select(`
+              id,
+              nome_fantasia,
+              razao_social,
+              documento,
+              slug,
+              email,
+              telefone,
+              whatsapp,
+              logo_url,
+              banner_url,
+              cidade,
+              estado,
+              status
+            `)
+            .eq('id', empresaId)
+            .single()
 
-      if (empresaError) throw empresaError
+        if (empresaError) {
+          console.error(
+            'Erro ao carregar empresa:',
+            empresaError
+          )
 
-      if (!empresaData) {
-        setErro('Negócio não encontrado.')
-        return
-      }
+          setEmpresa(null)
+          return
+        }
 
-      setEmpresa(empresaData as Empresa)
+        const empresaAtual = empresaData as Empresa
 
-      const { data: vitrineData, error: vitrineError } =
-        await supabase
+        setEmpresa(empresaAtual)
+
+        const { data: filialData, error: filialError } =
+          await supabase
+            .from('filiais')
+            .select(`
+              id,
+              empresa_id,
+              nome,
+              codigo,
+              telefone,
+              whatsapp,
+              cep,
+              logradouro,
+              numero,
+              complemento,
+              bairro,
+              cidade,
+              estado,
+              ativa
+            `)
+            .eq('empresa_id', empresaId)
+            .eq('ativa', true)
+            .order('created_at', {
+              ascending: true,
+            })
+            .limit(1)
+            .maybeSingle()
+
+        if (filialError) {
+          console.error(
+            'Erro ao carregar unidade:',
+            filialError
+          )
+
+          setFilial(null)
+        } else {
+          setFilial(
+            filialData as Filial | null
+          )
+        }
+
+        /*
+         * Checklist real
+         *
+         * Cada item é calculado a partir dos dados
+         * que realmente existem no banco.
+         */
+
+        const dadosPrincipais =
+          Boolean(
+            empresaAtual.nome_fantasia?.trim() &&
+              empresaAtual.email?.trim() &&
+              empresaAtual.whatsapp?.trim()
+          )
+
+        const endereco =
+          Boolean(
+            filialData?.logradouro?.trim() &&
+              filialData?.numero?.trim() &&
+              filialData?.bairro?.trim() &&
+              filialData?.cidade?.trim() &&
+              filialData?.estado?.trim()
+          )
+
+        const logo =
+          Boolean(
+            empresaAtual.logo_url?.trim()
+          )
+
+        /*
+         * Procuramos a vitrine ativa da empresa.
+         */
+        const {
+          data: vitrineData,
+          error: vitrineError,
+        } = await supabase
           .from('vitrines')
           .select(`
             id,
             empresa_id,
-            filial_id,
-            nome_exibicao,
-            descricao,
-            slug,
-            logo_url,
-            banner_url,
-            cor_principal,
-            cor_secundaria,
-            cor_destaque,
-            mensagem_boas_vindas,
-            mensagem_fechado,
-            mostrar_precos,
-            permitir_pedidos,
-            permitir_favoritos,
-            permitir_compartilhamento,
-            ativo,
-            fuso_horario
+            ativo
           `)
           .eq('empresa_id', empresaId)
           .eq('ativo', true)
           .limit(1)
           .maybeSingle()
 
-      if (vitrineError) throw vitrineError
+        if (vitrineError) {
+          console.error(
+            'Erro ao carregar vitrine para o checklist:',
+            vitrineError
+          )
+        }
 
-      if (vitrineData) {
-        setVitrine(vitrineData as Vitrine)
+        const vitrine =
+          vitrineData as Vitrine | null
 
-        const { data: aparenciaData, error: aparenciaError } =
-          await supabase
+        /*
+         * A personalização é considerada concluída
+         * quando existe uma vitrine ativa e uma configuração
+         * de aparência vinculada a ela.
+         */
+        let personalizacao = false
+
+        if (vitrine?.id) {
+          const {
+            data: aparenciaData,
+            error: aparenciaError,
+          } = await supabase
             .from('vitrine_aparencia')
             .select(`
-              vitrine_id,
-              fonte,
-              estilo_botoes,
-              estilo_cards,
-              raio_bordas,
-              mostrar_logo,
-              mostrar_nome_loja,
-              layout_inicio,
-              tema
+              id,
+              vitrine_id
             `)
-            .eq('vitrine_id', vitrineData.id)
+            .eq('vitrine_id', vitrine.id)
             .maybeSingle()
 
-        if (aparenciaError) throw aparenciaError
+          if (aparenciaError) {
+            console.error(
+              'Erro ao carregar aparência da vitrine:',
+              aparenciaError
+            )
+          }
 
-        if (aparenciaData) {
-          setAparencia(
-            aparenciaData as VitrineAparencia,
+          personalizacao = Boolean(
+            (aparenciaData as VitrineAparencia | null)?.id
           )
-        } else {
-          setAparencia({
-            ...aparenciaPadrao,
-            vitrine_id: vitrineData.id,
-          })
         }
-      }
 
-      const { data: filiaisData, error: filiaisError } =
-        await supabase
-          .from('filiais')
-          .select(`
-            id,
-            empresa_id,
-            nome,
-            codigo,
-            telefone,
-            whatsapp,
-            cep,
-            logradouro,
-            numero,
-            complemento,
-            bairro,
-            cidade,
-            estado,
-            latitude,
-            longitude,
-            ativa
-          `)
-          .eq('empresa_id', empresaId)
-          .eq('ativa', true)
-          .order('nome')
-
-      if (filiaisError) throw filiaisError
-
-      const filiaisAtivas = (filiaisData || []) as Filial[]
-
-      setFiliais(filiaisAtivas)
-
-      if (filiaisAtivas.length > 0) {
-        setFilialSelecionadaId(filiaisAtivas[0].id)
-      }
-
-      const { data: categoriasData, error: categoriasError } =
-        await supabase
-          .from('catalogo_publico_categorias')
-          .select(`
-            categoria_id,
-            empresa_id,
-            categoria_pai_id,
-            nome,
-            slug,
-            descricao,
-            imagem_url,
-            ordem
-          `)
-          .eq('empresa_id', empresaId)
-          .order('ordem')
-          .order('nome')
-
-      if (categoriasError) throw categoriasError
-
-      setCategorias((categoriasData || []) as Categoria[])
-
-      const { data: produtosData, error: produtosError } =
-        await supabase
+        /*
+         * Produtos: basta existir pelo menos um produto
+         * ativo da empresa.
+         */
+        const {
+          count: quantidadeProdutos,
+          error: produtosError,
+        } = await supabase
           .from('produtos')
-          .select(`
-            id,
-            empresa_id,
-            categoria_id,
-            marca_id,
-            nome,
-            slug,
-            descricao,
-            descricao_curta,
-            sku,
-            codigo_barras,
-            codigo_interno,
-            unidade,
-            vendido_por_peso,
-            vendido_por_medida,
-            preco,
-            preco_promocional,
-            custo,
-            destaque_vitrine,
-            visivel_vitrine,
-            ativo,
-            controla_estoque,
-            informacoes_adicionais,
-            meta_titulo,
-            meta_descricao,
-            created_at,
-            updated_at,
-            promocao_inicio,
-            promocao_fim,
-            unidade_estoque_id,
-            unidade_venda_id,
-            unidade_compra_id,
-            permite_venda_fracionada,
-            permite_compra_fracionada,
-            permite_consumo_fracionada
-          `)
+          .select('id', {
+            count: 'exact',
+            head: true,
+          })
           .eq('empresa_id', empresaId)
           .eq('ativo', true)
-          .eq('visivel_vitrine', true)
-          .order('nome')
 
-      if (produtosError) throw produtosError
+        if (produtosError) {
+          console.error(
+            'Erro ao verificar produtos:',
+            produtosError
+          )
+        }
 
-      const produtosAtivos = (produtosData || []) as Produto[]
+        const produtos =
+          typeof quantidadeProdutos === 'number' &&
+          quantidadeProdutos > 0
 
-      setProdutos(produtosAtivos)
-
-      if (produtosAtivos.length > 0) {
-        const ids = produtosAtivos.map(
-          (produto) => produto.id,
-        )
-
-        const { data: fotosData, error: fotosError } =
-          await supabase
-            .from('catalogo_publico_fotos')
-            .select(`
-              foto_id,
-              produto_id,
-              variacao_id,
-              url,
-              ordem,
-              principal,
-              alt_text
-            `)
-            .in('produto_id', ids)
-            .order('ordem')
-
-        if (fotosError) throw fotosError
-
-        setFotos((fotosData || []) as FotoProduto[])
-      } else {
-        setFotos([])
+        setChecklist({
+          dadosPrincipais,
+          endereco,
+          logo,
+          personalizacao,
+          produtos,
+        })
+      } finally {
+        setCarregando(false)
+        setCarregandoChecklist(false)
       }
-    } catch (error) {
-      console.error('Erro ao carregar página pública:', error)
-      setErro(
-        'Não foi possível carregar a página do negócio.',
-      )
-    } finally {
-      setCarregando(false)
     }
+
+    carregarNegocio()
+  }, [empresaId])
+
+  function enderecoCompleto() {
+    if (!filial) return ''
+
+    const partes = [
+      filial.logradouro,
+      filial.numero,
+      filial.complemento,
+      filial.bairro,
+      filial.cidade,
+      filial.estado,
+    ].filter(Boolean)
+
+    return partes.join(', ')
   }
 
-  const filialSelecionada = useMemo(
-    () =>
-      filiais.find(
-        (filial) =>
-          filial.id === filialSelecionadaId,
-      ) || null,
-    [filiais, filialSelecionadaId],
-  )
+  function statusTexto() {
+    if (!empresa) return ''
 
-  const produtosFiltrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
-
-    return produtos.filter((produto) => {
-      const correspondeBusca =
-        !termo ||
-        produto.nome.toLowerCase().includes(termo) ||
-        (produto.descricao_curta || '')
-          .toLowerCase()
-          .includes(termo)
-
-      const correspondeCategoria =
-        !categoriaSelecionada ||
-        produto.categoria_id === categoriaSelecionada
-
-      return (
-        correspondeBusca &&
-        correspondeCategoria
-      )
-    })
-  }, [
-    produtos,
-    busca,
-    categoriaSelecionada,
-  ])
-
-  const produtosDestaque = useMemo(
-    () =>
-      produtos.filter(
-        (produto) =>
-          produto.destaque_vitrine,
-      ),
-    [produtos],
-  )
-
-  const tema = useMemo<PropsTema>(() => {
-    const principal =
-      vitrine?.cor_principal || '#159447'
-
-    const secundaria =
-      vitrine?.cor_secundaria || '#EAF7EF'
-
-    const destaque =
-      vitrine?.cor_destaque || '#0F6F38'
-
-    const escuro =
-      aparencia.tema === 'escuro'
-
-    return {
-      principal,
-      secundaria,
-      destaque,
-      fundo: escuro ? '#121714' : '#F7F9F7',
-      texto: escuro ? '#F5F8F6' : '#202622',
-      textoSecundario: escuro
-        ? '#AEB9B2'
-        : '#66706A',
-      card: escuro ? '#1B211E' : '#FFFFFF',
+    if (empresa.status === 'ativa') {
+      return 'Negócio ativo'
     }
-  }, [
-    vitrine,
-    aparencia.tema,
-  ])
 
-  const raio =
-    aparencia.raio_bordas ?? 12
+    if (empresa.status === 'arquivada') {
+      return 'Negócio arquivado'
+    }
 
-  const fonte =
-    aparencia.fonte || 'Inter, system-ui, sans-serif'
-
-  const estiloBotao =
-    aparencia.estilo_botoes === 'quadrado'
-      ? 4
-      : raio
-
-  const estiloCard =
-    aparencia.estilo_cards === 'destacado'
-      ? {
-          border: `1px solid ${tema.principal}33`,
-          boxShadow:
-            '0 5px 18px rgba(0,0,0,0.08)',
-        }
-      : {
-          border: `1px solid ${
-            aparencia.tema === 'escuro'
-              ? '#2B342F'
-              : '#E3EAE5'
-          }`,
-          boxShadow:
-            '0 2px 9px rgba(0,0,0,0.035)',
-        }
-
-  function fotoPrincipal(produtoId: string) {
-    const fotosProduto = fotos
-      .filter(
-        (foto) =>
-          foto.produto_id === produtoId,
-      )
-      .sort((a, b) => {
-        if (a.principal && !b.principal) return -1
-        if (!a.principal && b.principal) return 1
-        return a.ordem - b.ordem
-      })
-
-    return fotosProduto[0] || null
+    return empresa.status
   }
 
-  function formatarPreco(valor: number) {
-    return valor.toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    })
+  const itensConcluidos = [
+    checklist.dadosPrincipais,
+    checklist.endereco,
+    checklist.logo,
+    checklist.personalizacao,
+    checklist.produtos,
+  ].filter(Boolean).length
+
+  function renderCheckIcon(concluido: boolean) {
+    if (carregandoChecklist) {
+      return '…'
+    }
+
+    return concluido ? '✓' : '○'
   }
 
-  function renderProduto(produto: Produto) {
-    const foto = fotoPrincipal(produto.id)
-
-    const preco =
-      produto.preco_promocional ??
-      produto.preco
-
-    const possuiPromocao =
-      produto.preco_promocional !== null &&
-      produto.preco_promocional < produto.preco
-
-    return (
-      <button
-        key={produto.id}
-        type="button"
-        onClick={() =>
-          setProdutoSelecionado(produto)
-        }
-        style={{
-          ...styles.productCard,
-          ...estiloCard,
-          borderRadius: raio,
-          background: tema.card,
-          color: tema.texto,
-        }}
-      >
-        <div
-          style={{
-            ...styles.productImage,
-            borderRadius: Math.max(
-              0,
-              raio - 3,
-            ),
-            background: tema.secundaria,
-          }}
-        >
-          {foto ? (
-            <img
-              src={foto.url}
-              alt={
-                foto.alt_text ||
-                produto.nome
-              }
-              style={styles.productImageImg}
-            />
-          ) : (
-            <div
-              style={{
-                ...styles.noImage,
-                color: tema.textoSecundario,
-              }}
-            >
-              Sem foto
-            </div>
-          )}
-        </div>
-
-        <div style={styles.productInfo}>
-          <h3
-            style={{
-              ...styles.productName,
-              color: tema.texto,
-            }}
-          >
-            {produto.nome}
-          </h3>
-
-          {produto.descricao_curta && (
-            <p
-              style={{
-                ...styles.productDescription,
-                color: tema.textoSecundario,
-              }}
-            >
-              {produto.descricao_curta}
-            </p>
-          )}
-
-          {vitrine?.mostrar_precos !== false && (
-            <div style={styles.priceArea}>
-              {possuiPromocao && (
-                <span
-                  style={{
-                    ...styles.oldPrice,
-                    color: tema.textoSecundario,
-                  }}
-                >
-                  {formatarPreco(
-                    produto.preco,
-                  )}
-                </span>
-              )}
-
-              <strong
-                style={{
-                  ...styles.price,
-                  color: tema.principal,
-                }}
-              >
-                {formatarPreco(preco)}
-              </strong>
-            </div>
-          )}
-        </div>
-      </button>
-    )
-  }
-
-  if (produtoSelecionado) {
-    return (
-      <ProdutoDetalhePage
-        produto={produtoSelecionado}
-        empresaId={empresaId}
-        onVoltar={() =>
-          setProdutoSelecionado(null)
-        }
-      />
-    )
+  function classeCheckItem(concluido: boolean) {
+    return concluido
+      ? 'negocio-check-item negocio-check-item--done'
+      : 'negocio-check-item'
   }
 
   if (carregando) {
     return (
-      <div
-        style={{
-          ...styles.page,
-          background: '#F7F9F7',
-        }}
-      >
-        <div style={styles.loading}>
-          Carregando vitrine...
+      <div className="negocio-loading">
+        <div className="negocio-loading-card">
+          <Logo />
+
+          <div className="negocio-spinner" />
+
+          <p>
+            Carregando seu negócio...
+          </p>
         </div>
+
+        <style>{`
+          .negocio-loading {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #f7f7f5;
+            color: #222;
+            font-family: Arial, sans-serif;
+          }
+
+          .negocio-loading-card {
+            width: 100%;
+            max-width: 360px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            text-align: center;
+          }
+
+          .negocio-loading-card p {
+            margin: 0;
+            color: #777;
+            font-size: 15px;
+          }
+
+          .negocio-spinner {
+            width: 28px;
+            height: 28px;
+            border: 3px solid #e8e8e8;
+            border-top-color: #222;
+            border-radius: 50%;
+            animation: negocioSpin .8s linear infinite;
+          }
+
+          @keyframes negocioSpin {
+            to {
+              transform: rotate(360deg);
+            }
+          }
+        `}</style>
       </div>
     )
   }
 
-  if (erro) {
+  if (!empresa) {
     return (
-      <div
-        style={{
-          ...styles.page,
-          background: '#F7F9F7',
-        }}
-      >
-        <div style={styles.errorContainer}>
-          <h1 style={styles.errorTitle}>
-            Não foi possível abrir a vitrine
+      <div className="negocio-error">
+        <div className="negocio-error-card">
+          <Logo />
+
+          <h1>
+            Não encontramos seu negócio
           </h1>
 
-          <p style={styles.errorText}>
-            {erro}
+          <p>
+            Não foi possível carregar os dados deste negócio.
           </p>
 
-          {onVoltar && (
-            <button
-              onClick={onVoltar}
-              style={{
-                ...styles.backButton,
-                background: '#FFFFFF',
-              }}
-            >
-              <ArrowLeft size={18} />
-              Voltar
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={onSair}
+            className="negocio-primary-button"
+          >
+            Voltar
+          </button>
         </div>
+
+        <style>{`
+          .negocio-error {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #f7f7f5;
+            font-family: Arial, sans-serif;
+          }
+
+          .negocio-error-card {
+            width: 100%;
+            max-width: 420px;
+            background: #fff;
+            border-radius: 24px;
+            padding: 32px 24px;
+            text-align: center;
+            box-shadow: 0 12px 40px rgba(0,0,0,.06);
+          }
+
+          .negocio-error-card h1 {
+            margin: 28px 0 10px;
+            font-size: 24px;
+          }
+
+          .negocio-error-card p {
+            margin: 0 0 24px;
+            color: #777;
+            line-height: 1.5;
+          }
+        `}</style>
       </div>
     )
   }
 
-  const nomeLoja =
-    vitrine?.nome_exibicao ||
-    empresa?.nome_fantasia ||
-    'Meu negócio'
-
-  const logo =
-    vitrine?.logo_url ||
-    empresa?.logo_url
-
-  const banner =
-    vitrine?.banner_url ||
-    empresa?.banner_url
-
-  const descricao =
-    vitrine?.descricao ||
-    empresa?.descricao_publica
-
-  const mostrarNome =
-    aparencia.mostrar_nome_loja
-
-  const mostrarLogo =
-    aparencia.mostrar_logo
-
-  const mensagemBoasVindas =
-    vitrine?.mensagem_boas_vindas
-
-  const mensagemFechado =
-    vitrine?.mensagem_fechado
-
-  const cidade =
-    filialSelecionada?.cidade ||
-    empresa?.cidade
-
-  const estado =
-    filialSelecionada?.estado ||
-    empresa?.estado
-
   return (
-    <div
-      style={{
-        ...styles.page,
-        background: tema.fundo,
-        color: tema.texto,
-        fontFamily: fonte,
-      }}
-    >
-      <header
-        style={{
-          ...styles.topBar,
-          background: tema.card,
-          borderBottom: `1px solid ${
-            aparencia.tema === 'escuro'
-              ? '#2B342F'
-              : '#E3EAE5'
-          }`,
-        }}
-      >
-        <div style={styles.topBarInner}>
-          {onVoltar && (
-            <button
-              onClick={onVoltar}
-              style={{
-                ...styles.backButton,
-                color: tema.texto,
-                background: 'transparent',
-              }}
-            >
-              <ArrowLeft size={18} />
-              Voltar
-            </button>
-          )}
+    <div className="negocio-page">
+      <header className="negocio-topbar">
+        <div className="negocio-topbar-inner">
+          <div className="negocio-brand">
+            <div className="negocio-brand-logo">
+              {empresa.logo_url ? (
+                <img
+                  src={empresa.logo_url}
+                  alt={`Logo de ${empresa.nome_fantasia}`}
+                />
+              ) : (
+                <Logo />
+              )}
+            </div>
 
-          <div style={styles.organizaLabel}>
-            organiza
+            <div className="negocio-brand-info">
+              <strong>
+                {empresa.nome_fantasia}
+              </strong>
+
+              <span>
+                {filial?.nome || 'Unidade principal'}
+              </span>
+            </div>
           </div>
+
+          <button
+            type="button"
+            className="negocio-menu-button"
+            onClick={() => setMenuAberto(true)}
+            aria-label="Abrir menu"
+          >
+            <span />
+            <span />
+            <span />
+          </button>
         </div>
       </header>
 
-      {banner && (
-        <div
-          style={{
-            ...styles.banner,
-            borderRadius: 0,
-          }}
-        >
-          <img
-            src={banner}
-            alt=""
-            style={styles.bannerImage}
-          />
-        </div>
-      )}
-
-      <main style={styles.main}>
-        <section
-          style={{
-            ...styles.businessHeader,
-            background: tema.card,
-            borderRadius: raio,
-            ...estiloCard,
-          }}
-        >
-          {mostrarLogo && logo && (
-            <div
-              style={{
-                ...styles.logoWrapper,
-                borderRadius: raio,
-                background: tema.secundaria,
-              }}
-            >
-              <img
-                src={logo}
-                alt={`Logo de ${nomeLoja}`}
-                style={styles.logo}
-              />
-            </div>
-          )}
-
-          {mostrarNome && (
-            <h1
-              style={{
-                ...styles.businessName,
-                color: tema.texto,
-              }}
-            >
-              {nomeLoja}
-            </h1>
-          )}
-
-          {descricao && (
-            <p
-              style={{
-                ...styles.businessDescription,
-                color: tema.textoSecundario,
-              }}
-            >
-              {descricao}
-            </p>
-          )}
-
-          {mensagemBoasVindas && (
-            <div
-              style={{
-                ...styles.welcome,
-                background: tema.secundaria,
-                color: tema.destaque,
-                borderRadius: estiloBotao,
-              }}
-            >
-              {mensagemBoasVindas}
-            </div>
-          )}
-        </section>
-
-        {filiais.length > 1 && (
-          <section style={styles.branchSection}>
-            <label
-              style={{
-                ...styles.fieldLabel,
-                color: tema.texto,
-              }}
-            >
-              Escolha a unidade
-            </label>
-
-            <div style={styles.selectWrapper}>
-              <select
-                value={
-                  filialSelecionadaId || ''
-                }
-                onChange={(e) =>
-                  setFilialSelecionadaId(
-                    e.target.value,
-                  )
-                }
-                style={{
-                  ...styles.select,
-                  background: tema.card,
-                  color: tema.texto,
-                  borderColor:
-                    aparencia.tema === 'escuro'
-                      ? '#38423C'
-                      : '#DCE5DF',
-                  borderRadius: estiloBotao,
-                }}
-              >
-                {filiais.map((filial) => (
-                  <option
-                    key={filial.id}
-                    value={filial.id}
-                  >
-                    {filial.nome ||
-                      filial.codigo ||
-                      'Unidade'}
-                  </option>
-                ))}
-              </select>
-
-              <ChevronDown
-                size={18}
-                style={styles.selectIcon}
-              />
-            </div>
-          </section>
-        )}
-
-        <section style={styles.searchSection}>
+      <main className="negocio-main">
+        <section className="negocio-hero">
           <div
-            style={{
-              ...styles.searchBox,
-              background: tema.card,
-              borderColor:
-                aparencia.tema === 'escuro'
-                  ? '#38423C'
-                  : '#DCE5DF',
-              borderRadius: estiloBotao,
-            }}
-          >
-            <Search
-              size={19}
-              color={tema.textoSecundario}
-            />
-
-            <input
-              value={busca}
-              onChange={(e) =>
-                setBusca(e.target.value)
-              }
-              placeholder="Buscar produtos"
-              style={{
-                ...styles.searchInput,
-                color: tema.texto,
-              }}
-            />
-          </div>
-        </section>
-
-        {categorias.length > 0 && (
-          <section style={styles.categoriesSection}>
-            <div
-              style={styles.categoryScroll}
-            >
-              <button
-                type="button"
-                onClick={() =>
-                  setCategoriaSelecionada(null)
-                }
-                style={{
-                  ...styles.categoryButton,
-                  borderRadius: estiloBotao,
-                  background:
-                    !categoriaSelecionada
-                      ? tema.principal
-                      : tema.card,
-                  color:
-                    !categoriaSelecionada
-                      ? '#FFFFFF'
-                      : tema.texto,
-                  borderColor:
-                    !categoriaSelecionada
-                      ? tema.principal
-                      : '#DCE5DF',
-                }}
-              >
-                Todos
-              </button>
-
-              {categorias.map((categoria) => (
-                <button
-                  key={categoria.categoria_id}
-                  type="button"
-                  onClick={() =>
-                    setCategoriaSelecionada(
-                      categoria.categoria_id,
-                    )
+            className="negocio-hero-background"
+            style={
+              empresa.banner_url
+                ? {
+                    backgroundImage: `url(${empresa.banner_url})`,
                   }
-                  style={{
-                    ...styles.categoryButton,
-                    borderRadius: estiloBotao,
-                    background:
-                      categoriaSelecionada ===
-                      categoria.categoria_id
-                        ? tema.principal
-                        : tema.card,
-                    color:
-                      categoriaSelecionada ===
-                      categoria.categoria_id
-                        ? '#FFFFFF'
-                        : tema.texto,
-                    borderColor:
-                      categoriaSelecionada ===
-                      categoria.categoria_id
-                        ? tema.principal
-                        : '#DCE5DF',
-                  }}
-                >
-                  {categoria.nome}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {aparencia.layout_inicio !== 'inicio' &&
-          produtosDestaque.length > 0 &&
-          !busca &&
-          !categoriaSelecionada && (
-            <section style={styles.section}>
-              <div style={styles.sectionHeader}>
-                <div>
-                  <h2
-                    style={{
-                      ...styles.sectionTitle,
-                      color: tema.texto,
-                    }}
-                  >
-                    Destaques
-                  </h2>
-
-                  <p
-                    style={{
-                      ...styles.sectionSubtitle,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    Produtos escolhidos pelo negócio
-                  </p>
-                </div>
-              </div>
-
-              <div style={styles.productGrid}>
-                {produtosDestaque.map(
-                  renderProduto,
-                )}
-              </div>
-            </section>
-          )}
-
-        {aparencia.layout_inicio === 'inicio' &&
-          (descricao || mensagemBoasVindas) && (
-            <section style={styles.section}>
-              <div
-                style={{
-                  ...styles.aboutCard,
-                  ...estiloCard,
-                  background: tema.card,
-                  borderRadius: raio,
-                }}
-              >
-                <h2
-                  style={{
-                    ...styles.aboutTitle,
-                    color: tema.texto,
-                  }}
-                >
-                  Sobre o negócio
-                </h2>
-
-                {descricao && (
-                  <p
-                    style={{
-                      ...styles.aboutText,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    {descricao}
-                  </p>
-                )}
-
-                {mensagemBoasVindas && (
-                  <p
-                    style={{
-                      ...styles.aboutText,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    {mensagemBoasVindas}
-                  </p>
-                )}
-              </div>
-            </section>
-          )}
-
-        <section style={styles.section}>
-          <div style={styles.sectionHeader}>
-            <div>
-              <h2
-                style={{
-                  ...styles.sectionTitle,
-                  color: tema.texto,
-                }}
-              >
-                Produtos
-              </h2>
-
-              <p
-                style={{
-                  ...styles.sectionSubtitle,
-                  color: tema.textoSecundario,
-                }}
-              >
-                {produtosFiltrados.length}{' '}
-                {produtosFiltrados.length === 1
-                  ? 'produto'
-                  : 'produtos'}
-              </p>
-            </div>
+                : undefined
+            }
+          >
+            {!empresa.banner_url && (
+              <div className="negocio-hero-placeholder" />
+            )}
           </div>
 
-          {produtosFiltrados.length > 0 ? (
-            <div style={styles.productGrid}>
-              {produtosFiltrados.map(
-                renderProduto,
+          <div className="negocio-hero-content">
+            <div className="negocio-logo-large">
+              {empresa.logo_url ? (
+                <img
+                  src={empresa.logo_url}
+                  alt={`Logo de ${empresa.nome_fantasia}`}
+                />
+              ) : (
+                <Logo />
               )}
             </div>
-          ) : (
-            <div
-              style={{
-                ...styles.emptyProducts,
-                background: tema.card,
-                borderRadius: raio,
-                color: tema.textoSecundario,
-              }}
-            >
-              Nenhum produto encontrado.
+
+            <div className="negocio-hero-text">
+              <h1>
+                {empresa.nome_fantasia}
+              </h1>
+
+              <p>
+                {filial?.cidade ||
+                  empresa.cidade ||
+                  'Seu negócio no digital'}
+
+                {filial?.estado ||
+                empresa.estado
+                  ? `, ${
+                      filial?.estado ||
+                      empresa.estado
+                    }`
+                  : ''}
+              </p>
             </div>
-          )}
+
+            <div className="negocio-status">
+              <span className="negocio-status-dot" />
+
+              {statusTexto()}
+            </div>
+          </div>
         </section>
 
-        {(filialSelecionada ||
-          cidade ||
-          estado) && (
-          <section style={styles.section}>
-            <div
-              style={{
-                ...styles.locationCard,
-                ...estiloCard,
-                background: tema.card,
-                borderRadius: raio,
-              }}
-            >
-              <div
-                style={{
-                  ...styles.locationIcon,
-                  background: tema.secundaria,
-                  color: tema.principal,
-                }}
-              >
-                <MapPin size={22} />
-              </div>
+        <section className="negocio-welcome">
+          <div>
+            <span className="negocio-eyebrow">
+              Seu negócio
+            </span>
 
-              <div>
-                <h2
-                  style={{
-                    ...styles.locationTitle,
-                    color: tema.texto,
-                  }}
-                >
-                  Onde estamos
-                </h2>
+            <h2>
+              Vamos deixar sua presença digital pronta para
+              seus clientes.
+            </h2>
 
-                {filialSelecionada?.nome && (
-                  <strong
-                    style={{
-                      ...styles.locationLine,
-                      color: tema.texto,
-                    }}
-                  >
-                    {filialSelecionada.nome}
-                  </strong>
-                )}
+            <p>
+              Aqui você organiza as informações do negócio,
+              seus produtos e prepara sua vitrine.
+            </p>
+          </div>
 
-                {filialSelecionada?.logradouro && (
-                  <span
-                    style={{
-                      ...styles.locationLine,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    {filialSelecionada.logradouro}
-                    {filialSelecionada.numero
-                      ? `, ${filialSelecionada.numero}`
-                      : ''}
-                    {filialSelecionada.complemento
-                      ? ` - ${filialSelecionada.complemento}`
-                      : ''}
-                  </span>
-                )}
-
-                {filialSelecionada?.bairro && (
-                  <span
-                    style={{
-                      ...styles.locationLine,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    {filialSelecionada.bairro}
-                  </span>
-                )}
-
-                {(cidade || estado) && (
-                  <span
-                    style={{
-                      ...styles.locationLine,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    {cidade}
-                    {cidade && estado
-                      ? ' - '
-                      : ''}
-                    {estado}
-                  </span>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-      </main>
-
-      {vitrine?.permitir_pedidos && (
-        <div
-          style={{
-            ...styles.bottomOrderBar,
-            background: tema.card,
-            borderTop: `1px solid ${
-              aparencia.tema === 'escuro'
-                ? '#2B342F'
-                : '#E3EAE5'
-            }`,
-          }}
-        >
           <button
             type="button"
-            onClick={() => {
-              /*
-               * O carrinho/pedido será conectado
-               * aqui posteriormente.
-               *
-               * O WhatsApp não aparece diretamente
-               * na página pública.
-               */
-              console.log(
-                'Abrir carrinho/pedido',
-              )
-            }}
-            style={{
-              ...styles.orderButton,
-              background: tema.principal,
-              borderRadius: estiloBotao,
-            }}
+            className="negocio-outline-button"
+            onClick={onAbrirVitrine}
           >
-            <ShoppingBag size={19} />
-            Fazer pedido
+            Visualizar vitrine
           </button>
+        </section>
+
+        <section className="negocio-section">
+          <div className="negocio-section-heading">
+            <div>
+              <span className="negocio-eyebrow">
+                Primeiros passos
+              </span>
+
+              <h2>
+                Deixe seu negócio completo
+              </h2>
+            </div>
+
+            <span className="negocio-progress">
+              {carregandoChecklist
+                ? '…/5'
+                : `${itensConcluidos}/5`}
+            </span>
+          </div>
+
+          <div className="negocio-checklist">
+            <button
+              type="button"
+              className={classeCheckItem(
+                checklist.dadosPrincipais
+              )}
+              onClick={onAbrirEditarEmpresa}
+            >
+              <span className="negocio-check-icon">
+                {renderCheckIcon(
+                  checklist.dadosPrincipais
+                )}
+              </span>
+
+              <span className="negocio-check-content">
+                <strong>
+                  Dados principais
+                </strong>
+
+                <small>
+                  {checklist.dadosPrincipais
+                    ? 'Informações principais preenchidas'
+                    : 'Nome, contato e informações do negócio'}
+                </small>
+              </span>
+
+              <span className="negocio-arrow">
+                ›
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={classeCheckItem(
+                checklist.endereco
+              )}
+              onClick={onAbrirEditarEndereco}
+            >
+              <span className="negocio-check-icon">
+                {renderCheckIcon(
+                  checklist.endereco
+                )}
+              </span>
+
+              <span className="negocio-check-content">
+                <strong>
+                  Endereço
+                </strong>
+
+                <small>
+                  {checklist.endereco
+                    ? 'Endereço da unidade preenchido'
+                    : 'Informe onde seus clientes podem encontrar você'}
+                </small>
+              </span>
+
+              <span className="negocio-arrow">
+                ›
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={classeCheckItem(
+                checklist.logo
+              )}
+              onClick={onAbrirEditarEmpresa}
+            >
+              <span className="negocio-check-icon">
+                {renderCheckIcon(
+                  checklist.logo
+                )}
+              </span>
+
+              <span className="negocio-check-content">
+                <strong>
+                  Adicionar logo
+                </strong>
+
+                <small>
+                  {checklist.logo
+                    ? 'Logo adicionada'
+                    : 'Deixe sua vitrine com a identidade do seu negócio'}
+                </small>
+              </span>
+
+              <span className="negocio-arrow">
+                ›
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={classeCheckItem(
+                checklist.personalizacao
+              )}
+              onClick={onAbrirPersonalizacao}
+            >
+              <span className="negocio-check-icon">
+                {renderCheckIcon(
+                  checklist.personalizacao
+                )}
+              </span>
+
+              <span className="negocio-check-content">
+                <strong>
+                  Personalizar sua vitrine
+                </strong>
+
+                <small>
+                  {checklist.personalizacao
+                    ? 'Aparência da vitrine configurada'
+                    : 'Escolha como seu negócio será apresentado'}
+                </small>
+              </span>
+
+              <span className="negocio-arrow">
+                ›
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={classeCheckItem(
+                checklist.produtos
+              )}
+              onClick={onAbrirProdutos}
+            >
+              <span className="negocio-check-icon">
+                {renderCheckIcon(
+                  checklist.produtos
+                )}
+              </span>
+
+              <span className="negocio-check-content">
+                <strong>
+                  Cadastrar produtos ou serviços
+                </strong>
+
+                <small>
+                  {checklist.produtos
+                    ? 'Você já cadastrou produtos ou serviços'
+                    : 'Comece a montar o que você oferece'}
+                </small>
+              </span>
+
+              <span className="negocio-arrow">
+                ›
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <section className="negocio-section">
+          <div className="negocio-section-heading">
+            <div>
+              <span className="negocio-eyebrow">
+                Acesso rápido
+              </span>
+
+              <h2>
+                Organize seu negócio
+              </h2>
+            </div>
+          </div>
+
+          <div className="negocio-actions-grid">
+            <button
+              type="button"
+              className="negocio-action"
+              onClick={onAbrirProdutos}
+            >
+              <span className="negocio-action-icon">
+                ▦
+              </span>
+
+              <strong>
+                Produtos e serviços
+              </strong>
+
+              <small>
+                Cadastre o que você oferece
+              </small>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-action"
+              onClick={onAbrirCategorias}
+            >
+              <span className="negocio-action-icon">
+                ≡
+              </span>
+
+              <strong>
+                Categorias
+              </strong>
+
+              <small>
+                Organize seus produtos por categoria
+              </small>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-action"
+            >
+              <span className="negocio-action-icon">
+                ♙
+              </span>
+
+              <strong>
+                Clientes
+              </strong>
+
+              <small>
+                Organize seus clientes
+              </small>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-action"
+            >
+              <span className="negocio-action-icon">
+                ▤
+              </span>
+
+              <strong>
+                Estoque
+              </strong>
+
+              <small>
+                Acompanhe seus produtos
+              </small>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-action"
+            >
+              <span className="negocio-action-icon">
+                R$
+              </span>
+
+              <strong>
+                Vendas
+              </strong>
+
+              <small>
+                Acompanhe suas vendas
+              </small>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-action negocio-vitrine-action"
+              onClick={onAbrirVitrine}
+            >
+              <span className="negocio-action-icon">
+                ◉
+              </span>
+
+              <strong>
+                Minha vitrine
+              </strong>
+
+              <small>
+                Veja como seus clientes verão
+              </small>
+            </button>
+          </div>
+        </section>
+
+        <section className="negocio-section">
+          <div className="negocio-section-heading">
+            <div>
+              <span className="negocio-eyebrow">
+                Unidade
+              </span>
+
+              <h2>
+                Seu endereço
+              </h2>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="negocio-unit-card"
+            onClick={onAbrirEditarEndereco}
+          >
+            <div className="negocio-unit-icon">
+              ⌂
+            </div>
+
+            <div className="negocio-unit-content">
+              <strong>
+                {filial?.nome ||
+                  'Unidade principal'}
+              </strong>
+
+              {enderecoCompleto() ? (
+                <p>
+                  {enderecoCompleto()}
+                </p>
+              ) : (
+                <p>
+                  Endereço ainda não informado.
+                </p>
+              )}
+
+              {filial?.cep && (
+                <span>
+                  CEP: {filial.cep}
+                </span>
+              )}
+            </div>
+
+            <span className="negocio-unit-arrow">
+              ›
+            </span>
+          </button>
+        </section>
+
+        <section className="negocio-vitrine-cta">
+          <div>
+            <span className="negocio-eyebrow">
+              Organiza
+            </span>
+
+            <h2>
+              Sua porta pode estar fechada.
+              <br />
+              Sua vitrine não precisa estar.
+            </h2>
+
+            <p>
+              Mostre seu negócio para seus clientes mesmo
+              quando você não estiver atendendo.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="negocio-primary-button"
+            onClick={onAbrirVitrine}
+          >
+            Ver minha vitrine
+          </button>
+        </section>
+      </main>
+
+      <nav className="negocio-bottom-nav">
+        <button
+          type="button"
+          className="negocio-nav-button negocio-nav-active"
+        >
+          <span>⌂</span>
+          <small>Início</small>
+        </button>
+
+        <button
+          type="button"
+          className="negocio-nav-button"
+          onClick={onAbrirProdutos}
+        >
+          <span>▦</span>
+          <small>Produtos</small>
+        </button>
+
+        <button
+          type="button"
+          className="negocio-nav-button"
+          onClick={onAbrirVitrine}
+        >
+          <span>◉</span>
+          <small>Vitrine</small>
+        </button>
+
+        <button
+          type="button"
+          className="negocio-nav-button"
+          onClick={() => setMenuAberto(true)}
+        >
+          <span>☰</span>
+          <small>Menu</small>
+        </button>
+      </nav>
+
+      {menuAberto && (
+        <div
+          className="negocio-menu-overlay"
+          onClick={() => setMenuAberto(false)}
+        >
+          <div
+            className="negocio-menu"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="negocio-menu-header">
+              <div>
+                <span className="negocio-eyebrow">
+                  Menu
+                </span>
+
+                <h2>
+                  {empresa.nome_fantasia}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                className="negocio-menu-close"
+                onClick={() =>
+                  setMenuAberto(false)
+                }
+                aria-label="Fechar menu"
+              >
+                ×
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirEditarEmpresa()
+              }}
+            >
+              <span>⌁</span>
+
+              <div>
+                <strong>
+                  Dados do negócio
+                </strong>
+
+                <small>
+                  Nome, contatos e informações da empresa
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirEditarEndereco()
+              }}
+            >
+              <span>⌂</span>
+
+              <div>
+                <strong>
+                  Endereço e unidade
+                </strong>
+
+                <small>
+                  Onde seus clientes podem encontrar você
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirPersonalizacao()
+              }}
+            >
+              <span>◉</span>
+
+              <div>
+                <strong>
+                  Personalizar vitrine
+                </strong>
+
+                <small>
+                  Escolha como seu negócio será apresentado
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirProdutos()
+              }}
+            >
+              <span>▦</span>
+
+              <div>
+                <strong>
+                  Produtos e serviços
+                </strong>
+
+                <small>
+                  Cadastre e organize seus produtos
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirCategorias()
+              }}
+            >
+              <span>≡</span>
+
+              <div>
+                <strong>
+                  Categorias
+                </strong>
+
+                <small>
+                  Organize os produtos da sua vitrine
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirVitrine()
+              }}
+            >
+              <span>◉</span>
+
+              <div>
+                <strong>
+                  Minha vitrine
+                </strong>
+
+                <small>
+                  Visualizar como cliente
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() => {
+                setMenuAberto(false)
+                onAbrirEditarEmpresa()
+              }}
+            >
+              <span>⚙</span>
+
+              <div>
+                <strong>
+                  Configurações
+                </strong>
+
+                <small>
+                  Configure os dados do seu negócio
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <button
+              type="button"
+              className="negocio-menu-item"
+              onClick={() =>
+                setMenuAberto(false)
+              }
+            >
+              <span>?</span>
+
+              <div>
+                <strong>
+                  Ajuda
+                </strong>
+
+                <small>
+                  Encontre respostas e orientações
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+
+            <div className="negocio-menu-divider" />
+
+            <button
+              type="button"
+              className="negocio-menu-item negocio-menu-exit"
+              onClick={onSair}
+            >
+              <span>↩</span>
+
+              <div>
+                <strong>
+                  Sair
+                </strong>
+
+                <small>
+                  Encerrar acesso ao negócio
+                </small>
+              </div>
+
+              <b>›</b>
+            </button>
+          </div>
         </div>
       )}
 
-      <footer
-        style={{
-          ...styles.footer,
-          background: tema.card,
-          borderTop: `1px solid ${
-            aparencia.tema === 'escuro'
-              ? '#2B342F'
-              : '#E3EAE5'
-          }`,
-        }}
-      >
-        <strong style={styles.footerBrand}>
-          organiza
-        </strong>
+      <style>{`
+        .negocio-page {
+          min-height: 100vh;
+          padding-bottom: 80px;
+          background: #f7f7f5;
+          color: #222;
+          font-family: Arial, sans-serif;
+        }
 
-        <span
-          style={{
-            ...styles.footerText,
-            color: tema.textoSecundario,
-          }}
-        >
-          Tecnologia para quem empreende
-        </span>
-      </footer>
+        .negocio-topbar {
+          position: sticky;
+          top: 0;
+          z-index: 40;
+          background: rgba(255,255,255,.96);
+          backdrop-filter: blur(12px);
+          border-bottom: 1px solid #e7e7e5;
+        }
+
+        .negocio-topbar-inner {
+          width: 100%;
+          max-width: 1180px;
+          min-height: 72px;
+          margin: 0 auto;
+          padding: 12px 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 20px;
+        }
+
+        .negocio-brand {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+
+        .negocio-brand-logo {
+          width: 44px;
+          height: 44px;
+          border-radius: 13px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f1f1ef;
+          flex-shrink: 0;
+        }
+
+        .negocio-brand-logo img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .negocio-brand-logo > * {
+          max-width: 80%;
+          max-height: 80%;
+        }
+
+        .negocio-brand-info {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .negocio-brand-info strong {
+          font-size: 15px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .negocio-brand-info span {
+          font-size: 12px;
+          color: #888;
+        }
+
+        .negocio-menu-button {
+          width: 44px;
+          height: 44px;
+          border: 1px solid #e7e7e5;
+          border-radius: 13px;
+          background: #fff;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          gap: 4px;
+          cursor: pointer;
+        }
+
+        .negocio-menu-button span {
+          width: 18px;
+          height: 2px;
+          border-radius: 2px;
+          background: #222;
+        }
+
+        .negocio-main {
+          width: 100%;
+          max-width: 1180px;
+          margin: 0 auto;
+          padding: 24px 20px 40px;
+        }
+
+        .negocio-hero {
+          position: relative;
+          overflow: hidden;
+          min-height: 360px;
+          border-radius: 28px;
+          background: #e8e8e5;
+          margin-bottom: 20px;
+        }
+
+        .negocio-hero-background {
+          position: absolute;
+          inset: 0;
+          background-size: cover;
+          background-position: center;
+        }
+
+        .negocio-hero-background::after {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            to bottom,
+            rgba(0,0,0,.04),
+            rgba(0,0,0,.62)
+          );
+        }
+
+        .negocio-hero-placeholder {
+          width: 100%;
+          height: 100%;
+          min-height: 360px;
+          background: linear-gradient(
+            135deg,
+            #ededeb,
+            #dcdcd8
+          );
+        }
+
+        .negocio-hero-content {
+          position: relative;
+          z-index: 2;
+          min-height: 360px;
+          padding: 32px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          color: #fff;
+        }
+
+        .negocio-logo-large {
+          width: 84px;
+          height: 84px;
+          border-radius: 22px;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #fff;
+          margin-bottom: 16px;
+          box-shadow: 0 10px 30px rgba(0,0,0,.15);
+        }
+
+        .negocio-logo-large img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .negocio-logo-large > * {
+          max-width: 75%;
+          max-height: 75%;
+        }
+
+        .negocio-hero-text h1 {
+          margin: 0;
+          font-size: clamp(28px,5vw,46px);
+          line-height: 1.05;
+          letter-spacing: -1.2px;
+        }
+
+        .negocio-hero-text p {
+          margin: 9px 0 0;
+          color: rgba(255,255,255,.82);
+          font-size: 15px;
+        }
+
+        .negocio-status {
+          margin-top: 18px;
+          width: fit-content;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 12px;
+          border-radius: 999px;
+          background: rgba(255,255,255,.14);
+          border: 1px solid rgba(255,255,255,.18);
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .negocio-status-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #72df93;
+        }
+
+        .negocio-welcome {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          padding: 28px;
+          background: #fff;
+          border: 1px solid #ebebe8;
+          border-radius: 24px;
+          margin-bottom: 36px;
+        }
+
+        .negocio-eyebrow {
+          display: block;
+          margin-bottom: 7px;
+          color: #999;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: .12em;
+          text-transform: uppercase;
+        }
+
+        .negocio-welcome h2,
+        .negocio-section-heading h2 {
+          margin: 0;
+          font-size: 24px;
+          line-height: 1.2;
+          letter-spacing: -.5px;
+        }
+
+        .negocio-welcome p {
+          max-width: 670px;
+          margin: 10px 0 0;
+          color: #777;
+          line-height: 1.55;
+          font-size: 14px;
+        }
+
+        .negocio-outline-button,
+        .negocio-primary-button {
+          border: 0;
+          cursor: pointer;
+          white-space: nowrap;
+          font-size: 14px;
+          font-weight: 700;
+          border-radius: 14px;
+          padding: 13px 18px;
+        }
+
+        .negocio-outline-button {
+          background: #fff;
+          border: 1px solid #ddd;
+          color: #222;
+        }
+
+        .negocio-primary-button {
+          background: #222;
+          color: #fff;
+        }
+
+        .negocio-section {
+          margin-bottom: 38px;
+        }
+
+        .negocio-section-heading {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          gap: 20px;
+          margin-bottom: 16px;
+        }
+
+        .negocio-progress {
+          color: #999;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .negocio-checklist {
+          display: grid;
+          grid-template-columns: repeat(2,minmax(0,1fr));
+          gap: 10px;
+        }
+
+        .negocio-check-item {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 13px;
+          text-align: left;
+          padding: 16px;
+          border: 1px solid #e9e9e6;
+          border-radius: 18px;
+          background: #fff;
+          cursor: pointer;
+          transition:
+            border-color .18s ease,
+            background .18s ease,
+            box-shadow .18s ease;
+        }
+
+        .negocio-check-item:hover {
+          border-color: #dcdcd8;
+          box-shadow: 0 8px 20px rgba(0,0,0,.04);
+        }
+
+        .negocio-check-item--done {
+          border-color: #e2e7e2;
+        }
+
+        .negocio-check-icon {
+          width: 32px;
+          height: 32px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          background: #f1f1ee;
+          color: #999;
+          font-size: 13px;
+          font-weight: 700;
+        }
+
+        .negocio-check-item--done .negocio-check-icon {
+          background: #222;
+          color: #fff;
+        }
+
+        .negocio-check-content {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          flex: 1;
+        }
+
+        .negocio-check-content strong {
+          color: #2b2b2b;
+          font-size: 14px;
+        }
+
+        .negocio-check-content small {
+          color: #999;
+          font-size: 12px;
+          line-height: 1.35;
+        }
+
+        .negocio-arrow {
+          color: #aaa;
+          font-size: 24px;
+          line-height: 1;
+        }
+
+        .negocio-actions-grid {
+          display: grid;
+          grid-template-columns: repeat(3,minmax(0,1fr));
+          gap: 12px;
+        }
+
+        .negocio-action {
+          min-height: 160px;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: flex-start;
+          gap: 8px;
+          padding: 20px;
+          border: 1px solid #e8e8e5;
+          border-radius: 20px;
+          background: #fff;
+          text-align: left;
+          cursor: pointer;
+          transition:
+            transform .18s ease,
+            box-shadow .18s ease;
+        }
+
+        .negocio-action:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 12px 28px rgba(0,0,0,.06);
+        }
+
+        .negocio-action-icon {
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 12px;
+          background: #f1f1ee;
+          color: #333;
+          font-size: 15px;
+          font-weight: 700;
+          margin-bottom: 6px;
+        }
+
+        .negocio-action strong {
+          font-size: 14px;
+        }
+
+        .negocio-action small {
+          color: #999;
+          line-height: 1.4;
+          font-size: 12px;
+        }
+
+        .negocio-vitrine-action {
+          border-color: #d9d9d5;
+          background: #fdfdfc;
+        }
+
+        .negocio-unit-card {
+          width: 100%;
+          display: flex;
+          align-items: flex-start;
+          gap: 16px;
+          padding: 20px;
+          background: #fff;
+          border: 1px solid #e8e8e5;
+          border-radius: 20px;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .negocio-unit-icon {
+          width: 44px;
+          height: 44px;
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 14px;
+          background: #f1f1ee;
+          font-size: 20px;
+        }
+
+        .negocio-unit-content {
+          min-width: 0;
+          flex: 1;
+        }
+
+        .negocio-unit-content strong {
+          display: block;
+          font-size: 15px;
+        }
+
+        .negocio-unit-content p {
+          margin: 7px 0 4px;
+          color: #777;
+          line-height: 1.5;
+          font-size: 13px;
+        }
+
+        .negocio-unit-content span {
+          color: #aaa;
+          font-size: 12px;
+        }
+
+        .negocio-unit-arrow {
+          color: #aaa;
+          font-size: 24px;
+          line-height: 1;
+          padding-top: 7px;
+        }
+
+        .negocio-vitrine-cta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+          padding: 28px;
+          border-radius: 24px;
+          background: #222;
+          color: #fff;
+        }
+
+        .negocio-vitrine-cta .negocio-eyebrow {
+          color: #999;
+        }
+
+        .negocio-vitrine-cta h2 {
+          margin: 0;
+          font-size: 25px;
+          line-height: 1.2;
+          letter-spacing: -.5px;
+        }
+
+        .negocio-vitrine-cta p {
+          max-width: 620px;
+          margin: 10px 0 0;
+          color: #aaa;
+          line-height: 1.5;
+          font-size: 13px;
+        }
+
+        .negocio-vitrine-cta .negocio-primary-button {
+          background: #fff;
+          color: #222;
+        }
+
+        .negocio-bottom-nav {
+          position: fixed;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 40;
+          height: 72px;
+          display: flex;
+          align-items: stretch;
+          justify-content: center;
+          gap: 4px;
+          padding: 6px 10px;
+          background: rgba(255,255,255,.97);
+          backdrop-filter: blur(12px);
+          border-top: 1px solid #e7e7e5;
+        }
+
+        .negocio-nav-button {
+          width: 100%;
+          max-width: 130px;
+          border: 0;
+          background: transparent;
+          color: #999;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+          border-radius: 12px;
+          cursor: pointer;
+        }
+
+        .negocio-nav-button span {
+          font-size: 19px;
+          line-height: 1;
+        }
+
+        .negocio-nav-button small {
+          font-size: 10px;
+          font-weight: 700;
+        }
+
+        .negocio-nav-active {
+          color: #222;
+          background: #f5f5f2;
+        }
+
+        .negocio-menu-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          justify-content: flex-end;
+          background: rgba(0,0,0,.38);
+        }
+
+        .negocio-menu {
+          width: min(420px,100%);
+          height: 100%;
+          padding: 26px 20px;
+          background: #fff;
+          overflow-y: auto;
+          animation: negocioMenuIn .2s ease;
+        }
+
+        @keyframes negocioMenuIn {
+          from {
+            transform: translateX(30px);
+            opacity: .7;
+          }
+
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+
+        .negocio-menu-header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 20px;
+          padding-bottom: 24px;
+        }
+
+        .negocio-menu-header h2 {
+          margin: 0;
+          font-size: 22px;
+        }
+
+        .negocio-menu-close {
+          width: 40px;
+          height: 40px;
+          border: 1px solid #e5e5e2;
+          border-radius: 12px;
+          background: #fff;
+          font-size: 24px;
+          cursor: pointer;
+        }
+
+        .negocio-menu-item {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 15px 4px;
+          border: 0;
+          border-bottom: 1px solid #eeeeeb;
+          background: transparent;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .negocio-menu-item > span {
+          width: 38px;
+          height: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border-radius: 11px;
+          background: #f2f2ef;
+          color: #333;
+        }
+
+        .negocio-menu-item > div {
+          min-width: 0;
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+        }
+
+        .negocio-menu-item strong {
+          font-size: 14px;
+        }
+
+        .negocio-menu-item small {
+          font-size: 11px;
+          color: #999;
+        }
+
+        .negocio-menu-item b {
+          color: #aaa;
+          font-size: 22px;
+          font-weight: 400;
+        }
+
+        .negocio-menu-divider {
+          height: 22px;
+        }
+
+        .negocio-menu-exit {
+          color: #a33;
+        }
+
+        .negocio-menu-exit > span {
+          color: #a33;
+          background: #f8eeee;
+        }
+
+        .negocio-menu-exit strong {
+          color: #a33;
+        }
+
+        @media (max-width:760px) {
+          .negocio-main {
+            padding: 14px 14px 28px;
+          }
+
+          .negocio-hero,
+          .negocio-hero-placeholder {
+            min-height: 320px;
+          }
+
+          .negocio-hero-content {
+            min-height: 320px;
+            padding: 22px;
+          }
+
+          .negocio-welcome {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 22px;
+          }
+
+          .negocio-outline-button {
+            width: 100%;
+          }
+
+          .negocio-checklist {
+            grid-template-columns: 1fr;
+          }
+
+          .negocio-actions-grid {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+          }
+
+          .negocio-vitrine-cta {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+
+          .negocio-vitrine-cta .negocio-primary-button {
+            width: 100%;
+          }
+        }
+
+        @media (max-width:480px) {
+          .negocio-topbar-inner {
+            padding: 10px 14px;
+          }
+
+          .negocio-brand-info strong {
+            max-width: 190px;
+          }
+
+          .negocio-hero {
+            border-radius: 22px;
+          }
+
+          .negocio-hero-content {
+            padding: 20px;
+          }
+
+          .negocio-logo-large {
+            width: 70px;
+            height: 70px;
+            border-radius: 18px;
+          }
+
+          .negocio-hero-text h1 {
+            font-size: 30px;
+          }
+
+          .negocio-section-heading h2 {
+            font-size: 21px;
+          }
+
+          .negocio-actions-grid {
+            grid-template-columns: 1fr;
+          }
+
+          .negocio-action {
+            min-height: auto;
+          }
+
+          .negocio-vitrine-cta {
+            padding: 22px;
+          }
+
+          .negocio-vitrine-cta h2 {
+            font-size: 22px;
+          }
+        }
+      `}</style>
     </div>
   )
-}
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: '100vh',
-    width: '100%',
-    boxSizing: 'border-box',
-  },
-
-  loading: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#66706A',
-    fontSize: 16,
-  },
-
-  errorContainer: {
-    maxWidth: 560,
-    margin: '0 auto',
-    padding: '80px 24px',
-    textAlign: 'center',
-  },
-
-  errorTitle: {
-    margin: '0 0 10px',
-    fontSize: 25,
-    color: '#202622',
-  },
-
-  errorText: {
-    margin: '0 0 25px',
-    color: '#66706A',
-    lineHeight: 1.5,
-  },
-
-  topBar: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 20,
-  },
-
-  topBarInner: {
-    maxWidth: 1180,
-    margin: '0 auto',
-    minHeight: 58,
-    padding: '0 20px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-
-  organizaLabel: {
-    marginLeft: 'auto',
-    fontWeight: 800,
-    fontSize: 17,
-    color: '#159447',
-    letterSpacing: '-0.3px',
-  },
-
-  backButton: {
-    border: 'none',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 7,
-    padding: '8px 0',
-    fontSize: 14,
-    cursor: 'pointer',
-  },
-
-  banner: {
-    width: '100%',
-    maxHeight: 360,
-    overflow: 'hidden',
-  },
-
-  bannerImage: {
-    width: '100%',
-    height: '100%',
-    maxHeight: 360,
-    objectFit: 'cover',
-    display: 'block',
-  },
-
-  main: {
-    maxWidth: 1180,
-    margin: '0 auto',
-    padding: '24px 20px 110px',
-    boxSizing: 'border-box',
-  },
-
-  businessHeader: {
-    padding: 24,
-    textAlign: 'center',
-    marginBottom: 22,
-  },
-
-  logoWrapper: {
-    width: 92,
-    height: 92,
-    margin: '0 auto 14px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-
-  logo: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'contain',
-  },
-
-  businessName: {
-    margin: 0,
-    fontSize: 29,
-    lineHeight: 1.15,
-    fontWeight: 750,
-    letterSpacing: '-0.6px',
-  },
-
-  businessDescription: {
-    maxWidth: 680,
-    margin: '10px auto 0',
-    fontSize: 15,
-    lineHeight: 1.6,
-  },
-
-  welcome: {
-    maxWidth: 680,
-    margin: '17px auto 0',
-    padding: '11px 15px',
-    fontSize: 14,
-    lineHeight: 1.5,
-  },
-
-  branchSection: {
-    marginBottom: 18,
-  },
-
-  fieldLabel: {
-    display: 'block',
-    fontSize: 13,
-    fontWeight: 650,
-    marginBottom: 7,
-  },
-
-  selectWrapper: {
-    position: 'relative',
-  },
-
-  select: {
-    width: '100%',
-    appearance: 'none',
-    padding: '12px 42px 12px 13px',
-    fontSize: 14,
-    border: '1px solid',
-    outline: 'none',
-  },
-
-  selectIcon: {
-    position: 'absolute',
-    right: 13,
-    top: '50%',
-    transform: 'translateY(-50%)',
-    pointerEvents: 'none',
-  },
-
-  searchSection: {
-    marginBottom: 18,
-  },
-
-  searchBox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '12px 14px',
-    border: '1px solid',
-  },
-
-  searchInput: {
-    flex: 1,
-    border: 'none',
-    outline: 'none',
-    background: 'transparent',
-    fontSize: 15,
-    minWidth: 0,
-  },
-
-  categoriesSection: {
-    marginBottom: 25,
-    overflow: 'hidden',
-  },
-
-  categoryScroll: {
-    display: 'flex',
-    gap: 9,
-    overflowX: 'auto',
-    paddingBottom: 4,
-  },
-
-  categoryButton: {
-    flexShrink: 0,
-    padding: '9px 14px',
-    border: '1px solid',
-    fontSize: 13,
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-
-  section: {
-    marginBottom: 30,
-  },
-
-  sectionHeader: {
-    display: 'flex',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-
-  sectionTitle: {
-    margin: 0,
-    fontSize: 21,
-    letterSpacing: '-0.3px',
-  },
-
-  sectionSubtitle: {
-    margin: '4px 0 0',
-    fontSize: 13,
-  },
-
-  productGrid: {
-    display: 'grid',
-    gridTemplateColumns:
-      'repeat(auto-fill, minmax(190px, 1fr))',
-    gap: 14,
-  },
-
-  productCard: {
-    padding: 9,
-    textAlign: 'left',
-    cursor: 'pointer',
-    overflow: 'hidden',
-    transition:
-      'transform 0.15s ease, box-shadow 0.15s ease',
-  },
-
-  productImage: {
-    width: '100%',
-    aspectRatio: '1 / 1',
-    overflow: 'hidden',
-  },
-
-  productImageImg: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    display: 'block',
-  },
-
-  noImage: {
-    width: '100%',
-    height: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 13,
-  },
-
-  productInfo: {
-    padding: '12px 5px 6px',
-  },
-
-  productName: {
-    margin: 0,
-    fontSize: 15,
-    lineHeight: 1.3,
-    fontWeight: 700,
-  },
-
-  productDescription: {
-    margin: '6px 0 0',
-    fontSize: 12.5,
-    lineHeight: 1.45,
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
-    overflow: 'hidden',
-  },
-
-  priceArea: {
-    marginTop: 10,
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'flex-start',
-  },
-
-  oldPrice: {
-    fontSize: 12,
-    textDecoration: 'line-through',
-  },
-
-  price: {
-    fontSize: 17,
-    marginTop: 2,
-  },
-
-  aboutCard: {
-    padding: 21,
-  },
-
-  aboutTitle: {
-    margin: 0,
-    fontSize: 19,
-  },
-
-  aboutText: {
-    margin: '10px 0 0',
-    fontSize: 14,
-    lineHeight: 1.65,
-  },
-
-  emptyProducts: {
-    padding: 35,
-    textAlign: 'center',
-    fontSize: 14,
-  },
-
-  locationCard: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 14,
-    padding: 20,
-  },
-
-  locationIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-
-  locationTitle: {
-    margin: '0 0 7px',
-    fontSize: 18,
-  },
-
-  locationLine: {
-    display: 'block',
-    fontSize: 13.5,
-    lineHeight: 1.55,
-  },
-
-  bottomOrderBar: {
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 30,
-    padding: '11px 20px',
-  },
-
-  orderButton: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    width: '100%',
-    maxWidth: 520,
-    margin: '0 auto',
-    border: 'none',
-    color: '#FFFFFF',
-    padding: '13px 18px',
-    fontSize: 15,
-    fontWeight: 700,
-    cursor: 'pointer',
-  },
-
-  footer: {
-    padding: '25px 20px 30px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-    textAlign: 'center',
-  },
-
-  footerBrand: {
-    fontSize: 18,
-    color: '#159447',
-  },
-
-  footerText: {
-    fontSize: 12.5,
-  },
 }
