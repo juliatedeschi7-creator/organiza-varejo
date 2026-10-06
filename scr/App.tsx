@@ -3,6 +3,7 @@ import { supabase } from './lib/supabase'
 
 import LoginPage from './pages/LoginPage'
 import CadastroPage from './pages/CadastroPage'
+import InicioPage from './pages/InicioPage'
 import CadastrarNegocioPage from './pages/CadastrarNegocioPage'
 import NegocioPage from './pages/NegocioPage'
 import ProdutosPage from './pages/ProdutosPage'
@@ -15,6 +16,7 @@ import PersonalizacaoNegocioPage from './pages/PersonalizacaoNegocioPage'
 type Page =
   | 'login'
   | 'cadastro'
+  | 'inicio'
   | 'cadastrar-negocio'
   | 'negocio'
   | 'produtos'
@@ -29,43 +31,6 @@ export default function App() {
   const [empresaId, setEmpresaId] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
 
-  async function carregarEmpresaDoUsuario() {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
-
-    if (!session?.user?.email) {
-      setEmpresaId(null)
-      setPage('login')
-      setCarregando(false)
-      return
-    }
-
-    const { data: empresa, error } = await supabase
-      .from('empresas')
-      .select('id')
-      .eq('email', session.user.email)
-      .maybeSingle()
-
-    if (error) {
-      console.error('Erro ao localizar empresa:', error)
-      setEmpresaId(null)
-      setPage('cadastrar-negocio')
-      setCarregando(false)
-      return
-    }
-
-    if (empresa?.id) {
-      setEmpresaId(empresa.id)
-      setPage('negocio')
-    } else {
-      setEmpresaId(null)
-      setPage('cadastrar-negocio')
-    }
-
-    setCarregando(false)
-  }
-
   useEffect(() => {
     let montado = true
 
@@ -78,39 +43,25 @@ export default function App() {
         return
       }
 
-      if (!session?.user?.email) {
+      if (!session?.user) {
         setEmpresaId(null)
         setPage('login')
         setCarregando(false)
         return
       }
 
-      const { data: empresa, error } = await supabase
-        .from('empresas')
-        .select('id')
-        .eq('email', session.user.email)
-        .maybeSingle()
-
-      if (!montado) {
-        return
-      }
-
-      if (error) {
-        console.error('Erro ao carregar empresa:', error)
-        setEmpresaId(null)
-        setPage('cadastrar-negocio')
-        setCarregando(false)
-        return
-      }
-
-      if (empresa?.id) {
-        setEmpresaId(empresa.id)
-        setPage('negocio')
-      } else {
-        setEmpresaId(null)
-        setPage('cadastrar-negocio')
-      }
-
+      /*
+       * A conta pertence ao USUÁRIO, não a uma única empresa.
+       *
+       * Por isso, depois do login sempre vamos para a InicioPage.
+       *
+       * A InicioPage é responsável por mostrar:
+       * - empresas que pertencem ao usuário
+       * - opção de cadastrar uma empresa
+       * - opção de explorar lojas como cliente
+       */
+      setEmpresaId(null)
+      setPage('inicio')
       setCarregando(false)
     }
 
@@ -124,40 +75,25 @@ export default function App() {
           return
         }
 
-        if (!session?.user?.email) {
+        if (!session?.user) {
           setEmpresaId(null)
           setPage('login')
           return
         }
 
-        const { data: empresa, error } = await supabase
-          .from('empresas')
-          .select('id')
-          .eq('email', session.user.email)
-          .maybeSingle()
-
-        if (!montado) {
-          return
-        }
-
-        if (error) {
-          console.error(
-            'Erro ao verificar empresa após autenticação:',
-            error,
-          )
-
-          setEmpresaId(null)
-          setPage('cadastrar-negocio')
-          return
-        }
-
-        if (empresa?.id) {
-          setEmpresaId(empresa.id)
-          setPage('negocio')
-        } else {
-          setEmpresaId(null)
-          setPage('cadastrar-negocio')
-        }
+        /*
+         * Não procuramos mais uma empresa pelo e-mail.
+         *
+         * O usuário pode ter:
+         * - nenhuma empresa
+         * - uma empresa
+         * - várias empresas
+         *
+         * A InicioPage consulta membros_empresa e apresenta
+         * todas as empresas às quais o usuário tem acesso.
+         */
+        setEmpresaId(null)
+        setPage('inicio')
       },
     )
 
@@ -167,23 +103,43 @@ export default function App() {
     }
   }, [])
 
-  async function handleLoginSuccess() {
-    await carregarEmpresaDoUsuario()
+  function handleLoginSuccess() {
+    setEmpresaId(null)
+    setPage('inicio')
   }
 
   function handleCadastroSucesso() {
+    /*
+     * Depois que a conta é criada, o usuário volta para o login.
+     *
+     * O próprio fluxo de autenticação da CadastroPage continua
+     * responsável por informar quando a conta estiver pronta.
+     */
     setPage('login')
   }
 
   function handleNegocioCriado(id: string) {
+    /*
+     * Uma nova empresa acabou de ser criada.
+     *
+     * Entramos diretamente nela para que o proprietário possa
+     * continuar a configuração.
+     */
     setEmpresaId(id)
     setPage('negocio')
   }
 
-  async function handleSair() {
-    await supabase.auth.signOut()
+  function handleAbrirEmpresa(id: string) {
+    /*
+     * A pessoa escolheu uma das empresas exibidas na InicioPage.
+     */
+    setEmpresaId(id)
+    setPage('negocio')
+  }
+
+  function voltarParaInicio() {
     setEmpresaId(null)
-    setPage('login')
+    setPage('inicio')
   }
 
   function voltarParaNegocio() {
@@ -192,6 +148,13 @@ export default function App() {
       return
     }
 
+    setPage('inicio')
+  }
+
+  async function handleSair() {
+    await supabase.auth.signOut()
+
+    setEmpresaId(null)
     setPage('login')
   }
 
@@ -228,22 +191,47 @@ export default function App() {
     )
   }
 
+  if (page === 'inicio') {
+    return (
+      <InicioPage
+        onExplorar={() => {
+          /*
+           * O destino do Mercado Local será conectado aqui
+           * quando a página correspondente estiver definida.
+           */
+          console.log('Abrir Mercado Local')
+        }}
+        onCadastrarNegocio={() => {
+          setPage('cadastrar-negocio')
+        }}
+        onAgoraNao={() => {
+          /*
+           * Por enquanto, "Agora não" permanece na experiência
+           * inicial. Quando tivermos a tela pública/entrada do
+           * Organiza definida, podemos conectar esse caminho.
+           */
+          setPage('inicio')
+        }}
+        onAbrirEmpresa={handleAbrirEmpresa}
+      />
+    )
+  }
+
   if (page === 'cadastrar-negocio') {
     return (
       <CadastrarNegocioPage
-        onVoltar={() => setPage('login')}
+        onVoltar={voltarParaInicio}
         onCadastroSucesso={handleNegocioCriado}
       />
     )
   }
 
+  /*
+   * Todas as telas abaixo dependem de uma empresa selecionada.
+   */
   if (!empresaId) {
-    return (
-      <LoginPage
-        onCriarConta={() => setPage('cadastro')}
-        onLoginSuccess={handleLoginSuccess}
-      />
-    )
+    setPage('inicio')
+    return null
   }
 
   if (page === 'negocio') {
@@ -327,10 +315,21 @@ export default function App() {
     )
   }
 
+  /*
+   * Fallback de segurança.
+   */
   return (
-    <LoginPage
-      onCriarConta={() => setPage('cadastro')}
-      onLoginSuccess={handleLoginSuccess}
+    <InicioPage
+      onExplorar={() => {
+        console.log('Abrir Mercado Local')
+      }}
+      onCadastrarNegocio={() => {
+        setPage('cadastrar-negocio')
+      }}
+      onAgoraNao={() => {
+        setPage('inicio')
+      }}
+      onAbrirEmpresa={handleAbrirEmpresa}
     />
   )
 }
