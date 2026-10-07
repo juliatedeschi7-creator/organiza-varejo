@@ -173,32 +173,101 @@ export default function PersonalizacaoNegocioPage({
     carregar()
   }, [empresaId])
 
-  async function carregar() {
-    try {
-      setCarregando(true)
-      setMensagem('')
+async function carregar() {
+  let etapa = 'início'
 
-      const { data: empresaData, error: empresaError } =
-        await supabase
-          .from('empresas')
-          .select('id, nome_fantasia, logo_url')
-          .eq('id', empresaId)
-          .maybeSingle()
+  try {
+    setCarregando(true)
+    setMensagem('')
 
-      if (empresaError) {
-        throw empresaError
-      }
+    etapa = 'empresa'
 
-      if (!empresaData) {
-        setMensagem('Negócio não encontrado.')
-        return
-      }
+    const { data: empresaData, error: empresaError } =
+      await supabase
+        .from('empresas')
+        .select('id, nome_fantasia, logo_url')
+        .eq('id', empresaId)
+        .maybeSingle()
 
-      setEmpresa(empresaData as Empresa)
+    if (empresaError) {
+      throw new Error(
+        `Erro ao carregar empresa: ${empresaError.message}`,
+      )
+    }
 
-      const { data: vitrineData, error: vitrineError } =
+    if (!empresaData) {
+      setMensagem(
+        'Negócio não encontrado para este usuário.',
+      )
+      return
+    }
+
+    setEmpresa(empresaData as Empresa)
+
+    etapa = 'vitrine'
+
+    const { data: vitrineData, error: vitrineError } =
+      await supabase
+        .from('vitrines')
+        .select(`
+          id,
+          empresa_id,
+          nome_exibicao,
+          descricao,
+          slug,
+          logo_url,
+          banner_url,
+          cor_principal,
+          cor_secundaria,
+          cor_destaque,
+          mensagem_boas_vindas,
+          mensagem_fechado,
+          mostrar_precos,
+          permitir_pedidos,
+          permitir_favoritos,
+          permitir_compartilhamento,
+          ativo,
+          fuso_horario
+        `)
+        .eq('empresa_id', empresaId)
+        .eq('ativo', true)
+        .order('created_at', {
+          ascending: true,
+        })
+        .limit(1)
+        .maybeSingle()
+
+    if (vitrineError) {
+      throw new Error(
+        `Erro ao carregar vitrine: ${vitrineError.message}`,
+      )
+    }
+
+    let vitrineAtual: Vitrine
+
+    if (!vitrineData) {
+      etapa = 'criação da vitrine'
+
+      const { data: novaVitrine, error: novaVitrineError } =
         await supabase
           .from('vitrines')
+          .insert({
+            empresa_id: empresaId,
+            nome_exibicao:
+              empresaData.nome_fantasia ||
+              'Minha loja',
+            logo_url:
+              empresaData.logo_url || null,
+            cor_principal: '#159447',
+            cor_secundaria: '#EAF7EF',
+            cor_destaque: '#0F6F38',
+            mostrar_precos: true,
+            permitir_pedidos: true,
+            permitir_favoritos: true,
+            permitir_compartilhamento: true,
+            ativo: true,
+            fuso_horario: 'America/Sao_Paulo',
+          })
           .select(`
             id,
             empresa_id,
@@ -219,121 +288,91 @@ export default function PersonalizacaoNegocioPage({
             ativo,
             fuso_horario
           `)
-          .eq('empresa_id', empresaId)
-          .eq('ativo', true)
-          .limit(1)
-          .maybeSingle()
+          .single()
 
-      if (vitrineError) {
-        throw vitrineError
+      if (novaVitrineError) {
+        throw new Error(
+          `Erro ao criar vitrine: ${novaVitrineError.message}`,
+        )
       }
 
-      let vitrineAtual: Vitrine
+      vitrineAtual = novaVitrine as Vitrine
+    } else {
+      vitrineAtual = vitrineData as Vitrine
+    }
 
-      if (!vitrineData) {
-        const { data: novaVitrine, error: novaVitrineError } =
-          await supabase
-            .from('vitrines')
-            .insert({
-              empresa_id: empresaId,
-              nome_exibicao:
-                empresaData.nome_fantasia || 'Minha loja',
-              logo_url: empresaData.logo_url || null,
-              cor_principal: '#159447',
-              cor_secundaria: '#EAF7EF',
-              cor_destaque: '#0F6F38',
-              mostrar_precos: true,
-              permitir_pedidos: true,
-              permitir_favoritos: true,
-              permitir_compartilhamento: true,
-              ativo: true,
-              fuso_horario: 'America/Sao_Paulo',
-            })
-            .select(`
-              id,
-              empresa_id,
-              nome_exibicao,
-              descricao,
-              slug,
-              logo_url,
-              banner_url,
-              cor_principal,
-              cor_secundaria,
-              cor_destaque,
-              mensagem_boas_vindas,
-              mensagem_fechado,
-              mostrar_precos,
-              permitir_pedidos,
-              permitir_favoritos,
-              permitir_compartilhamento,
-              ativo,
-              fuso_horario
-            `)
-            .single()
+    setVitrine(vitrineAtual)
 
-        if (novaVitrineError) {
-          throw novaVitrineError
-        }
+    etapa = 'aparência da vitrine'
 
-        vitrineAtual = novaVitrine as Vitrine
-      } else {
-        vitrineAtual = vitrineData as Vitrine
-      }
+    const { data: aparenciaData, error: aparenciaError } =
+      await supabase
+        .from('vitrine_aparencia')
+        .select(`
+          id,
+          vitrine_id,
+          fonte,
+          estilo_botoes,
+          estilo_cards,
+          raio_bordas,
+          mostrar_logo,
+          mostrar_nome_loja,
+          layout_inicio,
+          tema
+        `)
+        .eq('vitrine_id', vitrineAtual.id)
+        .maybeSingle()
 
-      setVitrine(vitrineAtual)
+    if (aparenciaError) {
+      throw new Error(
+        `Erro ao carregar aparência: ${aparenciaError.message}`,
+      )
+    }
 
-      const { data: aparenciaData, error: aparenciaError } =
-        await supabase
-          .from('vitrine_aparencia')
-          .select(`
-            id,
-            vitrine_id,
-            fonte,
-            estilo_botoes,
-            estilo_cards,
-            raio_bordas,
-            mostrar_logo,
-            mostrar_nome_loja,
-            layout_inicio,
-            tema
-          `)
-          .eq('vitrine_id', vitrineAtual.id)
-          .maybeSingle()
+    if (aparenciaData) {
+      setAparencia(
+        aparenciaData as VitrineAparencia,
+      )
+    } else {
+      setAparencia({
+        ...VALORES_PADRAO,
+        vitrine_id: vitrineAtual.id,
+      })
+    }
 
-      if (aparenciaError) {
-        throw aparenciaError
-      }
+    etapa = 'seções da vitrine'
 
-      if (aparenciaData) {
-        setAparencia(aparenciaData as VitrineAparencia)
-      } else {
-        setAparencia({
-          ...VALORES_PADRAO,
-          vitrine_id: vitrineAtual.id,
+    const { data: secoesData, error: secoesError } =
+      await supabase
+        .from('vitrine_secoes')
+        .select(`
+          id,
+          vitrine_id,
+          tipo,
+          titulo,
+          ordem,
+          visivel,
+          configuracoes
+        `)
+        .eq('vitrine_id', vitrineAtual.id)
+        .order('ordem', {
+          ascending: true,
         })
-      }
 
-      const { data: secoesData, error: secoesError } =
-        await supabase
-          .from('vitrine_secoes')
-          .select(`
-            id,
-            vitrine_id,
-            tipo,
-            titulo,
-            ordem,
-            visivel,
-            configuracoes
-          `)
-          .eq('vitrine_id', vitrineAtual.id)
-          .order('ordem', { ascending: true })
+    if (secoesError) {
+      throw new Error(
+        `Erro ao carregar seções: ${secoesError.message}`,
+      )
+    }
 
-      if (secoesError) {
-        throw secoesError
-      }
+    if (
+      !secoesData ||
+      secoesData.length === 0
+    ) {
+      etapa = 'criação das seções padrão'
 
-      if (!secoesData || secoesData.length === 0) {
-        const novasSecoes = SECOES_PADRAO.map(
+      const novasSecoes =
+        SECOES_PADRAO.map(
           (secao, index) => ({
             vitrine_id: vitrineAtual.id,
             tipo: secao.tipo,
@@ -344,46 +383,60 @@ export default function PersonalizacaoNegocioPage({
           }),
         )
 
-        const {
-          data: secoesCriadas,
-          error: criarSecoesError,
-        } = await supabase
-          .from('vitrine_secoes')
-          .insert(novasSecoes)
-          .select(`
-            id,
-            vitrine_id,
-            tipo,
-            titulo,
-            ordem,
-            visivel,
-            configuracoes
-          `)
-          .order('ordem', { ascending: true })
+      const {
+        data: secoesCriadas,
+        error: criarSecoesError,
+      } = await supabase
+        .from('vitrine_secoes')
+        .insert(novasSecoes)
+        .select(`
+          id,
+          vitrine_id,
+          tipo,
+          titulo,
+          ordem,
+          visivel,
+          configuracoes
+        `)
+        .order('ordem', {
+          ascending: true,
+        })
 
-        if (criarSecoesError) {
-          throw criarSecoesError
-        }
-
-        setSecoes(
-          (secoesCriadas || []) as VitrineSecao[],
+      if (criarSecoesError) {
+        throw new Error(
+          `Erro ao criar seções padrão: ${criarSecoesError.message}`,
         )
-      } else {
-        setSecoes(secoesData as VitrineSecao[])
       }
-    } catch (error) {
-      console.error(
-        'Erro ao carregar personalização:',
-        error,
-      )
 
-      setMensagem(
-        'Não foi possível carregar a personalização da vitrine.',
+      setSecoes(
+        (secoesCriadas || []) as VitrineSecao[],
       )
-    } finally {
-      setCarregando(false)
+    } else {
+      setSecoes(
+        secoesData as VitrineSecao[],
+      )
     }
+  } catch (error) {
+    console.error(
+      'Erro detalhado na personalização:',
+      {
+        etapa,
+        error,
+      },
+    )
+
+    const mensagemErro =
+      error instanceof Error
+        ? error.message
+        : String(error)
+
+    setMensagem(
+      `Não foi possível abrir a personalização. Etapa: ${etapa}. ${mensagemErro}`,
+    )
+  } finally {
+    setCarregando(false)
   }
+}
 
   function alterarAparencia(
     campo: keyof VitrineAparencia,
