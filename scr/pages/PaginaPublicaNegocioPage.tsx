@@ -210,7 +210,9 @@ export default function PaginaPublicaNegocioPage({
           .eq('id', empresaId)
           .maybeSingle()
 
-      if (empresaError) throw empresaError
+      if (empresaError) {
+        throw empresaError
+      }
 
       if (!empresaData) {
         setErro('Negócio não encontrado.')
@@ -248,29 +250,35 @@ export default function PaginaPublicaNegocioPage({
           .limit(1)
           .maybeSingle()
 
-      if (vitrineError) throw vitrineError
+      if (vitrineError) {
+        throw vitrineError
+      }
 
       if (vitrineData) {
         setVitrine(vitrineData as Vitrine)
 
-        const { data: aparenciaData, error: aparenciaError } =
-          await supabase
-            .from('vitrine_aparencia')
-            .select(`
-              vitrine_id,
-              fonte,
-              estilo_botoes,
-              estilo_cards,
-              raio_bordas,
-              mostrar_logo,
-              mostrar_nome_loja,
-              layout_inicio,
-              tema
-            `)
-            .eq('vitrine_id', vitrineData.id)
-            .maybeSingle()
+        const {
+          data: aparenciaData,
+          error: aparenciaError,
+        } = await supabase
+          .from('vitrine_aparencia')
+          .select(`
+            vitrine_id,
+            fonte,
+            estilo_botoes,
+            estilo_cards,
+            raio_bordas,
+            mostrar_logo,
+            mostrar_nome_loja,
+            layout_inicio,
+            tema
+          `)
+          .eq('vitrine_id', vitrineData.id)
+          .maybeSingle()
 
-        if (aparenciaError) throw aparenciaError
+        if (aparenciaError) {
+          throw aparenciaError
+        }
 
         if (aparenciaData) {
           setAparencia(
@@ -284,109 +292,127 @@ export default function PaginaPublicaNegocioPage({
         }
       }
 
-      const { data: filiaisData, error: filiaisError } =
-        await supabase
-          .from('filiais')
-          .select(`
-            id,
-            empresa_id,
-            nome,
-            codigo,
-            telefone,
-            whatsapp,
-            cep,
-            logradouro,
-            numero,
-            complemento,
-            bairro,
-            cidade,
-            estado,
-            latitude,
-            longitude,
-            ativa
-          `)
-          .eq('empresa_id', empresaId)
-          .eq('ativa', true)
-          .order('nome')
+      const {
+        data: filiaisData,
+        error: filiaisError,
+      } = await supabase
+        .from('filiais')
+        .select(`
+          id,
+          empresa_id,
+          nome,
+          codigo,
+          telefone,
+          whatsapp,
+          cep,
+          logradouro,
+          numero,
+          complemento,
+          bairro,
+          cidade,
+          estado,
+          latitude,
+          longitude,
+          ativa
+        `)
+        .eq('empresa_id', empresaId)
+        .eq('ativa', true)
+        .order('nome')
 
-      if (filiaisError) throw filiaisError
+      if (filiaisError) {
+        throw filiaisError
+      }
 
-      const filiaisAtivas = (filiaisData || []) as Filial[]
+      const filiaisAtivas =
+        (filiaisData || []) as Filial[]
 
       setFiliais(filiaisAtivas)
 
       if (filiaisAtivas.length > 0) {
-        setFilialSelecionadaId(filiaisAtivas[0].id)
+        setFilialSelecionadaId(
+          filiaisAtivas[0].id,
+        )
       }
 
-      const { data: categoriasData, error: categoriasError } =
-        await supabase
-          .from('catalogo_publico_categorias')
-          .select(`
-            categoria_id,
-            empresa_id,
-            categoria_pai_id,
-            nome,
-            slug,
-            descricao,
-            imagem_url,
-            ordem
-          `)
-          .eq('empresa_id', empresaId)
-          .order('ordem')
-          .order('nome')
+      const {
+        data: categoriasData,
+        error: categoriasError,
+      } = await supabase
+        .from('catalogo_publico_categorias')
+        .select(`
+          categoria_id,
+          empresa_id,
+          categoria_pai_id,
+          nome,
+          slug,
+          descricao,
+          imagem_url,
+          ordem
+        `)
+        .eq('empresa_id', empresaId)
+        .order('ordem')
+        .order('nome')
 
-      if (categoriasError) throw categoriasError
+      if (categoriasError) {
+        throw categoriasError
+      }
 
-      setCategorias((categoriasData || []) as Categoria[])
+      setCategorias(
+        (categoriasData || []) as Categoria[],
+      )
 
-      const { data: produtosData, error: produtosError } =
-        await supabase
-          .from('produtos')
-          .select(`
-            id,
-            empresa_id,
-            categoria_id,
-            marca_id,
-            nome,
-            slug,
-            descricao,
-            descricao_curta,
-            sku,
-            codigo_barras,
-            codigo_interno,
-            unidade,
-            vendido_por_peso,
-            vendido_por_medida,
-            preco,
-            preco_promocional,
-            custo,
-            destaque_vitrine,
-            visivel_vitrine,
-            ativo,
-            controla_estoque,
-            informacoes_adicionais,
-            meta_titulo,
-            meta_descricao,
-            created_at,
-            updated_at,
-            promocao_inicio,
-            promocao_fim,
-            unidade_estoque_id,
-            unidade_venda_id,
-            unidade_compra_id,
-            permite_venda_fracionada,
-            permite_compra_fracionada,
-            permite_consumo_fracionada
-          `)
-          .eq('empresa_id', empresaId)
-          .eq('ativo', true)
-          .eq('visivel_vitrine', true)
-          .order('nome')
+      const {
+        data: produtosData,
+        error: produtosError,
+      } = await supabase
+        .from('produtos')
+        .select(`
+          id,
+          empresa_id,
+          categoria_id,
+          marca_id,
+          nome,
+          slug,
+          descricao,
+          descricao_curta,
+          sku,
+          codigo_barras,
+          codigo_interno,
+          unidade,
+          vendido_por_peso,
+          vendido_por_medida,
+          preco,
+          preco_promocional,
+          custo,
+          destaque_vitrine,
+          visivel_vitrine,
+          ativo,
+          controla_estoque,
+          informacoes_adicionais,
+          meta_titulo,
+          meta_descricao,
+          created_at,
+          updated_at,
+          promocao_inicio,
+          promocao_fim,
+          unidade_estoque_id,
+          unidade_venda_id,
+          unidade_compra_id,
+          permite_venda_fracionada,
+          permite_compra_fracionada,
+          permite_consumo_fracionada
+        `)
+        .eq('empresa_id', empresaId)
+        .eq('ativo', true)
+        .eq('visivel_vitrine', true)
+        .order('nome')
 
-      if (produtosError) throw produtosError
+      if (produtosError) {
+        throw produtosError
+      }
 
-      const produtosAtivos = (produtosData || []) as Produto[]
+      const produtosAtivos =
+        (produtosData || []) as Produto[]
 
       setProdutos(produtosAtivos)
 
@@ -395,39 +421,47 @@ export default function PaginaPublicaNegocioPage({
           (produto) => produto.id,
         )
 
-        const { data: fotosData, error: fotosError } =
-          await supabase
-            .from('catalogo_publico_fotos')
-            .select(`
-              foto_id,
-              produto_id,
-              variacao_id,
-              url,
-              ordem,
-              principal,
-              alt_text
-            `)
-            .in('produto_id', ids)
-            .order('ordem')
+        const {
+          data: fotosData,
+          error: fotosError,
+        } = await supabase
+          .from('catalogo_publico_fotos')
+          .select(`
+            foto_id,
+            produto_id,
+            variacao_id,
+            url,
+            ordem,
+            principal,
+            alt_text
+          `)
+          .in('produto_id', ids)
+          .order('ordem')
 
-        if (fotosError) throw fotosError
+        if (fotosError) {
+          throw fotosError
+        }
 
-        setFotos((fotosData || []) as FotoProduto[])
+        setFotos(
+          (fotosData || []) as FotoProduto[],
+        )
       } else {
         setFotos([])
       }
- } catch (error) {
-  console.error('Erro ao carregar página pública:', error)
+    } catch (error) {
+      console.error(
+        'Erro ao carregar página pública:',
+        error,
+      )
 
-  const mensagem =
-    error instanceof Error
-      ? error.message
-      : 'Erro desconhecido ao carregar a vitrine.'
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : 'Erro desconhecido ao carregar a vitrine.'
 
-  setErro(
-    `Erro ao carregar a página do negócio: ${mensagem}`,
-  )
-}
+      setErro(
+        `Erro ao carregar a página do negócio: ${mensagem}`,
+      )
     } finally {
       setCarregando(false)
     }
@@ -510,7 +544,8 @@ export default function PaginaPublicaNegocioPage({
     aparencia.raio_bordas ?? 12
 
   const fonte =
-    aparencia.fonte || 'Inter, system-ui, sans-serif'
+    aparencia.fonte ||
+    'Inter, system-ui, sans-serif'
 
   const estiloBotao =
     aparencia.estilo_botoes === 'quadrado'
@@ -541,8 +576,14 @@ export default function PaginaPublicaNegocioPage({
           foto.produto_id === produtoId,
       )
       .sort((a, b) => {
-        if (a.principal && !b.principal) return -1
-        if (!a.principal && b.principal) return 1
+        if (a.principal && !b.principal) {
+          return -1
+        }
+
+        if (!a.principal && b.principal) {
+          return 1
+        }
+
         return a.ordem - b.ordem
       })
 
@@ -666,11 +707,13 @@ export default function PaginaPublicaNegocioPage({
 
   if (produtoSelecionado) {
     return (
-  <ProdutoDetalhePage
-  produtoId={produtoSelecionado.id}
-  empresaId={empresaId}
-  onVoltar={() => setProdutoSelecionado(null)}
-/>
+      <ProdutoDetalhePage
+        produtoId={produtoSelecionado.id}
+        empresaId={empresaId}
+        onVoltar={() =>
+          setProdutoSelecionado(null)
+        }
+      />
     )
   }
 
@@ -748,9 +791,6 @@ export default function PaginaPublicaNegocioPage({
 
   const mensagemBoasVindas =
     vitrine?.mensagem_boas_vindas
-
-  const mensagemFechado =
-    vitrine?.mensagem_fechado
 
   const cidade =
     filialSelecionada?.cidade ||
@@ -1258,13 +1298,6 @@ export default function PaginaPublicaNegocioPage({
           <button
             type="button"
             onClick={() => {
-              /*
-               * O carrinho/pedido será conectado
-               * aqui posteriormente.
-               *
-               * O WhatsApp não aparece diretamente
-               * na página pública.
-               */
               console.log(
                 'Abrir carrinho/pedido',
               )
