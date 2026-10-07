@@ -123,7 +123,7 @@ interface Produto {
   unidade_compra_id: string | null
   permite_venda_fracionada: boolean
   permite_compra_fracionada: boolean
-  permite_consumo_fracionada: boolean
+  permite_consumo_fracionado: boolean
 }
 
 interface FotoProduto {
@@ -414,7 +414,7 @@ export default function PaginaPublicaNegocioPage({
           unidade_compra_id,
           permite_venda_fracionada,
           permite_compra_fracionada,
-          permite_consumo_fracionada
+          permite_consumo_fracionado
         `)
         .eq('empresa_id', empresaId)
         .eq('ativo', true)
