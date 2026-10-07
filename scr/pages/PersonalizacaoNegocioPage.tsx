@@ -1,12 +1,24 @@
-import { useEffect, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type CSSProperties,
+  type DragEvent,
+} from 'react'
 import {
   ArrowLeft,
   Check,
   Eye,
+  EyeOff,
+  GripVertical,
+  Image as ImageIcon,
   Palette,
   RotateCcw,
   Save,
   Smartphone,
+  Trash2,
+  Upload,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -50,6 +62,22 @@ interface VitrineAparencia {
   tema: string | null
 }
 
+interface VitrineSecao {
+  id: string
+  vitrine_id: string
+  tipo: string
+  titulo: string | null
+  ordem: number
+  visivel: boolean
+  configuracoes: Record<string, unknown>
+}
+
+interface Empresa {
+  id: string
+  nome_fantasia: string | null
+  logo_url: string | null
+}
+
 const VALORES_PADRAO: VitrineAparencia = {
   vitrine_id: '',
   fonte: null,
@@ -62,18 +90,84 @@ const VALORES_PADRAO: VitrineAparencia = {
   tema: 'claro',
 }
 
+const SECOES_PADRAO = [
+  {
+    tipo: 'banner',
+    titulo: 'Apresentação',
+  },
+  {
+    tipo: 'categorias',
+    titulo: 'Categorias',
+  },
+  {
+    tipo: 'destaques',
+    titulo: 'Destaques',
+  },
+  {
+    tipo: 'produtos',
+    titulo: 'Produtos',
+  },
+  {
+    tipo: 'onde_estamos',
+    titulo: 'Onde estamos',
+  },
+]
+
+const INFORMACOES_SECOES: Record<
+  string,
+  {
+    nome: string
+    descricao: string
+    simbolo: string
+  }
+> = {
+  banner: {
+    nome: 'Apresentação',
+    descricao: 'Imagem, mensagem e identidade da loja.',
+    simbolo: 'A',
+  },
+  categorias: {
+    nome: 'Categorias',
+    descricao: 'Permite encontrar produtos por categoria.',
+    simbolo: 'C',
+  },
+  destaques: {
+    nome: 'Destaques',
+    descricao: 'Produtos escolhidos para receber destaque.',
+    simbolo: 'D',
+  },
+  produtos: {
+    nome: 'Produtos',
+    descricao: 'Catálogo de produtos da vitrine.',
+    simbolo: 'P',
+  },
+  onde_estamos: {
+    nome: 'Onde estamos',
+    descricao: 'Localização e informações da loja.',
+    simbolo: 'L',
+  },
+}
+
 export default function PersonalizacaoNegocioPage({
   empresaId,
   onVoltar,
   onAbrirVitrine,
 }: PersonalizacaoNegocioPageProps) {
+  const [empresa, setEmpresa] = useState<Empresa | null>(null)
   const [vitrine, setVitrine] = useState<Vitrine | null>(null)
   const [aparencia, setAparencia] =
     useState<VitrineAparencia>(VALORES_PADRAO)
+  const [secoes, setSecoes] = useState<VitrineSecao[]>([])
 
   const [carregando, setCarregando] = useState(true)
   const [salvando, setSalvando] = useState(false)
+  const [enviandoLogo, setEnviandoLogo] = useState(false)
+  const [enviandoCapa, setEnviandoCapa] = useState(false)
   const [mensagem, setMensagem] = useState('')
+  const [arrastandoId, setArrastandoId] = useState<string | null>(null)
+
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const capaInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     carregar()
@@ -84,43 +178,109 @@ export default function PersonalizacaoNegocioPage({
       setCarregando(true)
       setMensagem('')
 
-      const { data: vitrineData, error: vitrineError } = await supabase
-        .from('vitrines')
-        .select(`
-          id,
-          empresa_id,
-          nome_exibicao,
-          descricao,
-          slug,
-          logo_url,
-          banner_url,
-          cor_principal,
-          cor_secundaria,
-          cor_destaque,
-          mensagem_boas_vindas,
-          mensagem_fechado,
-          mostrar_precos,
-          permitir_pedidos,
-          permitir_favoritos,
-          permitir_compartilhamento,
-          ativo,
-          fuso_horario
-        `)
-        .eq('empresa_id', empresaId)
-        .limit(1)
-        .maybeSingle()
+      const { data: empresaData, error: empresaError } =
+        await supabase
+          .from('empresas')
+          .select('id, nome_fantasia, logo_url')
+          .eq('id', empresaId)
+          .maybeSingle()
+
+      if (empresaError) {
+        throw empresaError
+      }
+
+      if (!empresaData) {
+        setMensagem('Negócio não encontrado.')
+        return
+      }
+
+      setEmpresa(empresaData as Empresa)
+
+      const { data: vitrineData, error: vitrineError } =
+        await supabase
+          .from('vitrines')
+          .select(`
+            id,
+            empresa_id,
+            nome_exibicao,
+            descricao,
+            slug,
+            logo_url,
+            banner_url,
+            cor_principal,
+            cor_secundaria,
+            cor_destaque,
+            mensagem_boas_vindas,
+            mensagem_fechado,
+            mostrar_precos,
+            permitir_pedidos,
+            permitir_favoritos,
+            permitir_compartilhamento,
+            ativo,
+            fuso_horario
+          `)
+          .eq('empresa_id', empresaId)
+          .eq('ativo', true)
+          .limit(1)
+          .maybeSingle()
 
       if (vitrineError) {
         throw vitrineError
       }
 
+      let vitrineAtual: Vitrine
+
       if (!vitrineData) {
-        setVitrine(null)
-        setMensagem('Nenhuma vitrine foi encontrada para este negócio.')
-        return
+        const { data: novaVitrine, error: novaVitrineError } =
+          await supabase
+            .from('vitrines')
+            .insert({
+              empresa_id: empresaId,
+              nome_exibicao:
+                empresaData.nome_fantasia || 'Minha loja',
+              logo_url: empresaData.logo_url || null,
+              cor_principal: '#159447',
+              cor_secundaria: '#EAF7EF',
+              cor_destaque: '#0F6F38',
+              mostrar_precos: true,
+              permitir_pedidos: true,
+              permitir_favoritos: true,
+              permitir_compartilhamento: true,
+              ativo: true,
+              fuso_horario: 'America/Sao_Paulo',
+            })
+            .select(`
+              id,
+              empresa_id,
+              nome_exibicao,
+              descricao,
+              slug,
+              logo_url,
+              banner_url,
+              cor_principal,
+              cor_secundaria,
+              cor_destaque,
+              mensagem_boas_vindas,
+              mensagem_fechado,
+              mostrar_precos,
+              permitir_pedidos,
+              permitir_favoritos,
+              permitir_compartilhamento,
+              ativo,
+              fuso_horario
+            `)
+            .single()
+
+        if (novaVitrineError) {
+          throw novaVitrineError
+        }
+
+        vitrineAtual = novaVitrine as Vitrine
+      } else {
+        vitrineAtual = vitrineData as Vitrine
       }
 
-      setVitrine(vitrineData as Vitrine)
+      setVitrine(vitrineAtual)
 
       const { data: aparenciaData, error: aparenciaError } =
         await supabase
@@ -137,7 +297,7 @@ export default function PersonalizacaoNegocioPage({
             layout_inicio,
             tema
           `)
-          .eq('vitrine_id', vitrineData.id)
+          .eq('vitrine_id', vitrineAtual.id)
           .maybeSingle()
 
       if (aparenciaError) {
@@ -145,27 +305,81 @@ export default function PersonalizacaoNegocioPage({
       }
 
       if (aparenciaData) {
-        setAparencia({
-          id: aparenciaData.id,
-          vitrine_id: aparenciaData.vitrine_id,
-          fonte: aparenciaData.fonte,
-          estilo_botoes: aparenciaData.estilo_botoes,
-          estilo_cards: aparenciaData.estilo_cards,
-          raio_bordas: aparenciaData.raio_bordas,
-          mostrar_logo: aparenciaData.mostrar_logo,
-          mostrar_nome_loja: aparenciaData.mostrar_nome_loja,
-          layout_inicio: aparenciaData.layout_inicio,
-          tema: aparenciaData.tema,
-        })
+        setAparencia(aparenciaData as VitrineAparencia)
       } else {
         setAparencia({
           ...VALORES_PADRAO,
-          vitrine_id: vitrineData.id,
+          vitrine_id: vitrineAtual.id,
         })
       }
+
+      const { data: secoesData, error: secoesError } =
+        await supabase
+          .from('vitrine_secoes')
+          .select(`
+            id,
+            vitrine_id,
+            tipo,
+            titulo,
+            ordem,
+            visivel,
+            configuracoes
+          `)
+          .eq('vitrine_id', vitrineAtual.id)
+          .order('ordem', { ascending: true })
+
+      if (secoesError) {
+        throw secoesError
+      }
+
+      if (!secoesData || secoesData.length === 0) {
+        const novasSecoes = SECOES_PADRAO.map(
+          (secao, index) => ({
+            vitrine_id: vitrineAtual.id,
+            tipo: secao.tipo,
+            titulo: secao.titulo,
+            ordem: index + 1,
+            visivel: true,
+            configuracoes: {},
+          }),
+        )
+
+        const {
+          data: secoesCriadas,
+          error: criarSecoesError,
+        } = await supabase
+          .from('vitrine_secoes')
+          .insert(novasSecoes)
+          .select(`
+            id,
+            vitrine_id,
+            tipo,
+            titulo,
+            ordem,
+            visivel,
+            configuracoes
+          `)
+          .order('ordem', { ascending: true })
+
+        if (criarSecoesError) {
+          throw criarSecoesError
+        }
+
+        setSecoes(
+          (secoesCriadas || []) as VitrineSecao[],
+        )
+      } else {
+        setSecoes(secoesData as VitrineSecao[])
+      }
     } catch (error) {
-      console.error('Erro ao carregar personalização:', error)
-      setMensagem('Não foi possível carregar a personalização da vitrine.')
+      console.error(
+        'Erro ao carregar personalização:',
+        error,
+      )
+
+      setMensagem(
+        'Não foi possível carregar a personalização da vitrine.',
+      )
     } finally {
       setCarregando(false)
     }
@@ -195,6 +409,341 @@ export default function PersonalizacaoNegocioPage({
     })
   }
 
+  function alterarSecao(
+    id: string,
+    campo: 'titulo' | 'visivel',
+    valor: string | boolean,
+  ) {
+    setSecoes((atuais) =>
+      atuais.map((secao) =>
+        secao.id === id
+          ? {
+              ...secao,
+              [campo]: valor,
+            }
+          : secao,
+      ),
+    )
+  }
+
+  function iniciarArraste(
+    event: DragEvent<HTMLDivElement>,
+    id: string,
+  ) {
+    setArrastandoId(id)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', id)
+  }
+
+  function soltarSecao(
+    event: DragEvent<HTMLDivElement>,
+    idDestino: string,
+  ) {
+    event.preventDefault()
+
+    const idArrastado =
+      event.dataTransfer.getData('text/plain') ||
+      arrastandoId
+
+    if (!idArrastado || idArrastado === idDestino) {
+      setArrastandoId(null)
+      return
+    }
+
+    setSecoes((atuais) => {
+      const origem = atuais.findIndex(
+        (item) => item.id === idArrastado,
+      )
+
+      const destino = atuais.findIndex(
+        (item) => item.id === idDestino,
+      )
+
+      if (origem === -1 || destino === -1) {
+        return atuais
+      }
+
+      const copia = [...atuais]
+      const [item] = copia.splice(origem, 1)
+
+      copia.splice(destino, 0, item)
+
+      return copia.map((secao, index) => ({
+        ...secao,
+        ordem: index + 1,
+      }))
+    })
+
+    setArrastandoId(null)
+  }
+
+  function alterarArquivo(
+    event: ChangeEvent<HTMLInputElement>,
+    tipo: 'logo' | 'capa',
+  ) {
+    const arquivo = event.target.files?.[0]
+
+    event.target.value = ''
+
+    if (!arquivo) return
+
+    if (
+      ![
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+      ].includes(arquivo.type)
+    ) {
+      setMensagem(
+        'Escolha uma imagem JPG, PNG ou WebP.',
+      )
+      return
+    }
+
+    if (arquivo.size > 5 * 1024 * 1024) {
+      setMensagem(
+        'A imagem deve ter no máximo 5 MB.',
+      )
+      return
+    }
+
+    if (tipo === 'logo') {
+      enviarLogo(arquivo)
+    } else {
+      enviarCapa(arquivo)
+    }
+  }
+
+  async function enviarLogo(arquivo: File) {
+    if (!vitrine) return
+
+    try {
+      setEnviandoLogo(true)
+      setMensagem('')
+
+      const extensao =
+        arquivo.name.split('.').pop()?.toLowerCase() ||
+        'jpg'
+
+      const caminho = `${empresaId}/logo.${extensao}`
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from('empresa-imagens')
+          .upload(caminho, arquivo, {
+            upsert: true,
+            contentType: arquivo.type,
+          })
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data: publicUrlData } =
+        supabase.storage
+          .from('empresa-imagens')
+          .getPublicUrl(caminho)
+
+      const url = publicUrlData.publicUrl
+
+      const { error: empresaError } =
+        await supabase
+          .from('empresas')
+          .update({
+            logo_url: url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', empresaId)
+
+      if (empresaError) {
+        throw empresaError
+      }
+
+      const { error: vitrineError } =
+        await supabase
+          .from('vitrines')
+          .update({
+            logo_url: url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', vitrine.id)
+
+      if (vitrineError) {
+        throw vitrineError
+      }
+
+      setEmpresa((atual) =>
+        atual
+          ? {
+              ...atual,
+              logo_url: url,
+            }
+          : atual,
+      )
+
+      setVitrine((atual) =>
+        atual
+          ? {
+              ...atual,
+              logo_url: url,
+            }
+          : atual,
+      )
+
+      setMensagem('Logo atualizado com sucesso.')
+
+      window.setTimeout(() => {
+        setMensagem('')
+      }, 3000)
+    } catch (error) {
+      console.error(
+        'Erro ao enviar logo:',
+        error,
+      )
+
+      setMensagem(
+        'Não foi possível enviar o logo.',
+      )
+    } finally {
+      setEnviandoLogo(false)
+    }
+  }
+
+  async function enviarCapa(arquivo: File) {
+    if (!vitrine) return
+
+    try {
+      setEnviandoCapa(true)
+      setMensagem('')
+
+      const extensao =
+        arquivo.name.split('.').pop()?.toLowerCase() ||
+        'jpg'
+
+      const caminho = `${empresaId}/banner.${extensao}`
+
+      const { error: uploadError } =
+        await supabase.storage
+          .from('empresa-imagens')
+          .upload(caminho, arquivo, {
+            upsert: true,
+            contentType: arquivo.type,
+          })
+
+      if (uploadError) {
+        throw uploadError
+      }
+
+      const { data: publicUrlData } =
+        supabase.storage
+          .from('empresa-imagens')
+          .getPublicUrl(caminho)
+
+      const url = `${publicUrlData.publicUrl}?v=${Date.now()}`
+
+      const { error: vitrineError } =
+        await supabase
+          .from('vitrines')
+          .update({
+            banner_url: url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', vitrine.id)
+
+      if (vitrineError) {
+        throw vitrineError
+      }
+
+      setVitrine((atual) =>
+        atual
+          ? {
+              ...atual,
+              banner_url: url,
+            }
+          : atual,
+      )
+
+      setMensagem(
+        'Imagem de capa atualizada com sucesso.',
+      )
+
+      window.setTimeout(() => {
+        setMensagem('')
+      }, 3000)
+    } catch (error) {
+      console.error(
+        'Erro ao enviar capa:',
+        error,
+      )
+
+      setMensagem(
+        'Não foi possível enviar a imagem de capa.',
+      )
+    } finally {
+      setEnviandoCapa(false)
+    }
+  }
+
+  async function removerCapa() {
+    if (!vitrine) return
+
+    try {
+      setEnviandoCapa(true)
+      setMensagem('')
+
+      const arquivos = [
+        `${empresaId}/banner.jpg`,
+        `${empresaId}/banner.jpeg`,
+        `${empresaId}/banner.png`,
+        `${empresaId}/banner.webp`,
+      ]
+
+      await supabase.storage
+        .from('empresa-imagens')
+        .remove(arquivos)
+
+      const { error } = await supabase
+        .from('vitrines')
+        .update({
+          banner_url: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', vitrine.id)
+
+      if (error) {
+        throw error
+      }
+
+      setVitrine((atual) =>
+        atual
+          ? {
+              ...atual,
+              banner_url: null,
+            }
+          : atual,
+      )
+
+      setMensagem(
+        'Imagem de capa removida.',
+      )
+
+      window.setTimeout(() => {
+        setMensagem('')
+      }, 3000)
+    } catch (error) {
+      console.error(
+        'Erro ao remover capa:',
+        error,
+      )
+
+      setMensagem(
+        'Não foi possível remover a imagem de capa.',
+      )
+    } finally {
+      setEnviandoCapa(false)
+    }
+  }
+
   async function salvar() {
     if (!vitrine) return
 
@@ -202,88 +751,112 @@ export default function PersonalizacaoNegocioPage({
       setSalvando(true)
       setMensagem('')
 
-      const { error: vitrineError } = await supabase
-        .from('vitrines')
-        .update({
-          nome_exibicao: vitrine.nome_exibicao,
-          descricao: vitrine.descricao,
-          cor_principal: vitrine.cor_principal,
-          cor_secundaria: vitrine.cor_secundaria,
-          cor_destaque: vitrine.cor_destaque,
-          mensagem_boas_vindas: vitrine.mensagem_boas_vindas,
-          mensagem_fechado: vitrine.mensagem_fechado,
-          mostrar_precos: vitrine.mostrar_precos,
-          permitir_pedidos: vitrine.permitir_pedidos,
-          permitir_favoritos: vitrine.permitir_favoritos,
-          permitir_compartilhamento: vitrine.permitir_compartilhamento,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', vitrine.id)
+      const { error: vitrineError } =
+        await supabase
+          .from('vitrines')
+          .update({
+            nome_exibicao: vitrine.nome_exibicao,
+            descricao: vitrine.descricao,
+            cor_principal: vitrine.cor_principal,
+            cor_secundaria: vitrine.cor_secundaria,
+            cor_destaque: vitrine.cor_destaque,
+            mensagem_boas_vindas:
+              vitrine.mensagem_boas_vindas,
+            mensagem_fechado:
+              vitrine.mensagem_fechado,
+            mostrar_precos:
+              vitrine.mostrar_precos,
+            permitir_pedidos:
+              vitrine.permitir_pedidos,
+            permitir_favoritos:
+              vitrine.permitir_favoritos,
+            permitir_compartilhamento:
+              vitrine.permitir_compartilhamento,
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq('id', vitrine.id)
 
       if (vitrineError) {
         throw vitrineError
       }
 
-      const dadosAparencia = {
-        vitrine_id: vitrine.id,
-        fonte: aparencia.fonte,
-        estilo_botoes: aparencia.estilo_botoes,
-        estilo_cards: aparencia.estilo_cards,
-        raio_bordas: aparencia.raio_bordas,
-        mostrar_logo: aparencia.mostrar_logo,
-        mostrar_nome_loja: aparencia.mostrar_nome_loja,
-        layout_inicio: aparencia.layout_inicio,
-        tema: aparencia.tema,
-        updated_at: new Date().toISOString(),
-      }
-
-      const { data: aparenciaSalva, error: aparenciaError } =
+      const { error: aparenciaError } =
         await supabase
           .from('vitrine_aparencia')
-          .upsert(dadosAparencia, {
-            onConflict: 'vitrine_id',
-          })
-          .select(`
-            id,
-            vitrine_id,
-            fonte,
-            estilo_botoes,
-            estilo_cards,
-            raio_bordas,
-            mostrar_logo,
-            mostrar_nome_loja,
-            layout_inicio,
-            tema
-          `)
-          .single()
+          .upsert(
+            {
+              vitrine_id: vitrine.id,
+              fonte: aparencia.fonte,
+              estilo_botoes:
+                aparencia.estilo_botoes,
+              estilo_cards:
+                aparencia.estilo_cards,
+              raio_bordas:
+                aparencia.raio_bordas,
+              mostrar_logo:
+                aparencia.mostrar_logo,
+              mostrar_nome_loja:
+                aparencia.mostrar_nome_loja,
+              layout_inicio:
+                aparencia.layout_inicio,
+              tema: aparencia.tema,
+              updated_at:
+                new Date().toISOString(),
+            },
+            {
+              onConflict: 'vitrine_id',
+            },
+          )
 
       if (aparenciaError) {
         throw aparenciaError
       }
 
-      if (aparenciaSalva) {
-        setAparencia({
-          id: aparenciaSalva.id,
-          vitrine_id: aparenciaSalva.vitrine_id,
-          fonte: aparenciaSalva.fonte,
-          estilo_botoes: aparenciaSalva.estilo_botoes,
-          estilo_cards: aparenciaSalva.estilo_cards,
-          raio_bordas: aparenciaSalva.raio_bordas,
-          mostrar_logo: aparenciaSalva.mostrar_logo,
-          mostrar_nome_loja: aparenciaSalva.mostrar_nome_loja,
-          layout_inicio: aparenciaSalva.layout_inicio,
-          tema: aparenciaSalva.tema,
-        })
+      for (const [index, secao] of secoes.entries()) {
+        const { error: secaoError } =
+          await supabase
+            .from('vitrine_secoes')
+            .update({
+              titulo: secao.titulo,
+              ordem: index + 1,
+              visivel: secao.visivel,
+              configuracoes:
+                secao.configuracoes,
+              updated_at:
+                new Date().toISOString(),
+            })
+            .eq('id', secao.id)
+            .eq('vitrine_id', vitrine.id)
+
+        if (secaoError) {
+          throw secaoError
+        }
       }
 
-      setMensagem('Personalização salva com sucesso.')
+      setSecoes((atuais) =>
+        atuais.map((secao, index) => ({
+          ...secao,
+          ordem: index + 1,
+        })),
+      )
 
-      setTimeout(() => {
+      setMensagem(
+        'Personalização salva com sucesso.',
+      )
+
+      window.setTimeout(() => {
         setMensagem('')
       }, 3000)
     } catch (error) {
-      console.error('Erro ao salvar personalização:', error)
-      setMensagem('Não foi possível salvar a personalização.')
+      console.error(
+        'Erro ao salvar personalização:',
+        error,
+      )
+
+      setMensagem(
+        'Não foi possível salvar a personalização.',
+      )
     } finally {
       setSalvando(false)
     }
@@ -297,7 +870,17 @@ export default function PersonalizacaoNegocioPage({
       vitrine_id: vitrine.id,
     })
 
-    setMensagem('Configurações visuais restauradas para o padrão.')
+    setSecoes((atuais) =>
+      atuais.map((secao, index) => ({
+        ...secao,
+        ordem: index + 1,
+        visivel: true,
+      })),
+    )
+
+    setMensagem(
+      'A aparência e a ordem foram restauradas na prévia. Salve para aplicar.',
+    )
   }
 
   if (carregando) {
@@ -314,22 +897,23 @@ export default function PersonalizacaoNegocioPage({
     return (
       <div style={styles.page}>
         <header style={styles.header}>
-          <button onClick={onVoltar} style={styles.backButton}>
+          <button
+            onClick={onVoltar}
+            style={styles.backButton}
+          >
             <ArrowLeft size={20} />
             Voltar
           </button>
-
-          <div>
-            <h1 style={styles.title}>Personalização</h1>
-            <p style={styles.subtitle}>
-              Configure como sua vitrine aparece para seus clientes.
-            </p>
-          </div>
         </header>
 
         <div style={styles.emptyCard}>
+          <h1 style={styles.emptyTitle}>
+            Não foi possível abrir a personalização
+          </h1>
+
           <p style={styles.emptyText}>
-            {mensagem || 'Nenhuma vitrine encontrada.'}
+            {mensagem ||
+              'Nenhuma vitrine foi encontrada.'}
           </p>
         </div>
       </div>
@@ -345,31 +929,56 @@ export default function PersonalizacaoNegocioPage({
   const corDestaque =
     vitrine.cor_destaque || '#0F6F38'
 
+  const logo =
+    vitrine.logo_url ||
+    empresa?.logo_url ||
+    null
+
   return (
     <div style={styles.page}>
       <header style={styles.header}>
-        <button onClick={onVoltar} style={styles.backButton}>
+        <button
+          onClick={onVoltar}
+          style={styles.backButton}
+        >
           <ArrowLeft size={20} />
           Voltar
         </button>
 
         <div style={styles.headerContent}>
           <div>
-            <h1 style={styles.title}>Personalização</h1>
+            <h1 style={styles.title}>
+              Personalização
+            </h1>
+
             <p style={styles.subtitle}>
-              Escolha como sua vitrine será apresentada aos clientes.
+              Monte a vitrine do jeito que combina
+              com o seu negócio.
             </p>
           </div>
 
-          {onAbrirVitrine && (
+          <div style={styles.headerActions}>
+            {onAbrirVitrine && (
+              <button
+                onClick={onAbrirVitrine}
+                style={styles.previewButton}
+              >
+                <Eye size={18} />
+                Ver vitrine
+              </button>
+            )}
+
             <button
-              onClick={onAbrirVitrine}
-              style={styles.previewButton}
+              onClick={salvar}
+              disabled={salvando}
+              style={styles.saveHeaderButton}
             >
-              <Eye size={18} />
-              Ver vitrine
+              <Save size={18} />
+              {salvando
+                ? 'Salvando...'
+                : 'Salvar'}
             </button>
-          )}
+          </div>
         </div>
       </header>
 
@@ -383,147 +992,318 @@ export default function PersonalizacaoNegocioPage({
                 : {}),
             }}
           >
-            {mensagem.includes('sucesso') && <Check size={18} />}
+            {mensagem.includes('sucesso') && (
+              <Check size={18} />
+            )}
+
             {mensagem}
           </div>
         )}
 
         <section style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <Palette size={21} />
-            <div>
-              <h2 style={styles.sectionHeading}>Identidade da vitrine</h2>
-              <p style={styles.sectionDescription}>
-                Essas informações aparecem na sua vitrine pública.
-              </p>
-            </div>
-          </div>
+          <SectionHeader
+            icon={<ImageIcon size={21} />}
+            title="Identidade"
+            description="Crie a primeira impressão da sua vitrine."
+          />
 
           <div style={styles.card}>
-            <label style={styles.label}>
-              Nome exibido
-            </label>
+            <div style={styles.identityGrid}>
+              <div>
+                <label style={styles.label}>
+                  Logo
+                </label>
 
-            <input
-              value={vitrine.nome_exibicao || ''}
-              onChange={(e) =>
-                alterarVitrine('nome_exibicao', e.target.value)
-              }
-              placeholder="Nome que aparecerá na vitrine"
-              style={styles.input}
-            />
+                <div style={styles.logoUploadArea}>
+                  {logo ? (
+                    <img
+                      src={logo}
+                      alt="Logo da loja"
+                      style={styles.logoPreview}
+                    />
+                  ) : (
+                    <div style={styles.logoPlaceholder}>
+                      <ImageIcon size={28} />
+                      <span>
+                        Nenhum logo
+                      </span>
+                    </div>
+                  )}
 
-            <label style={styles.label}>
-              Descrição
-            </label>
+                  <div style={styles.uploadActions}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        logoInputRef.current?.click()
+                      }
+                      style={styles.uploadButton}
+                      disabled={enviandoLogo}
+                    >
+                      <Upload size={17} />
+                      {enviandoLogo
+                        ? 'Enviando...'
+                        : 'Trocar logo'}
+                    </button>
 
-            <textarea
-              value={vitrine.descricao || ''}
-              onChange={(e) =>
-                alterarVitrine('descricao', e.target.value)
-              }
-              placeholder="Conte um pouco sobre seu negócio"
-              style={styles.textarea}
-            />
+                    <span style={styles.uploadHint}>
+                      JPG, PNG ou WebP • até 5 MB
+                    </span>
+                  </div>
 
-            <label style={styles.label}>
-              Mensagem de boas-vindas
-            </label>
+                  <input
+                    ref={logoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) =>
+                      alterarArquivo(
+                        event,
+                        'logo',
+                      )
+                    }
+                    style={styles.hiddenInput}
+                  />
+                </div>
+              </div>
 
-            <textarea
-              value={vitrine.mensagem_boas_vindas || ''}
-              onChange={(e) =>
-                alterarVitrine(
-                  'mensagem_boas_vindas',
-                  e.target.value,
-                )
-              }
-              placeholder="Uma mensagem para receber seus clientes"
-              style={styles.textarea}
-            />
+              <div>
+                <label style={styles.label}>
+                  Imagem de capa
+                </label>
 
-            <label style={styles.label}>
-              Mensagem quando estiver fechado
-            </label>
+                <div style={styles.coverUploadArea}>
+                  {vitrine.banner_url ? (
+                    <img
+                      src={vitrine.banner_url}
+                      alt="Imagem de capa da vitrine"
+                      style={styles.coverPreview}
+                    />
+                  ) : (
+                    <div
+                      style={
+                        styles.coverPlaceholder
+                      }
+                    >
+                      <ImageIcon size={30} />
 
-            <textarea
-              value={vitrine.mensagem_fechado || ''}
-              onChange={(e) =>
-                alterarVitrine(
-                  'mensagem_fechado',
-                  e.target.value,
-                )
-              }
-              placeholder="Mensagem exibida quando a loja estiver fechada"
-              style={styles.textarea}
-            />
+                      <strong>
+                        Sua capa aparecerá aqui
+                      </strong>
+
+                      <span>
+                        Use uma imagem que represente
+                        sua loja.
+                      </span>
+                    </div>
+                  )}
+
+                  <div style={styles.coverActions}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        capaInputRef.current?.click()
+                      }
+                      style={styles.uploadButton}
+                      disabled={enviandoCapa}
+                    >
+                      <Upload size={17} />
+
+                      {enviandoCapa
+                        ? 'Enviando...'
+                        : vitrine.banner_url
+                          ? 'Trocar capa'
+                          : 'Escolher capa'}
+                    </button>
+
+                    {vitrine.banner_url && (
+                      <button
+                        type="button"
+                        onClick={removerCapa}
+                        style={
+                          styles.removeButton
+                        }
+                        disabled={enviandoCapa}
+                      >
+                        <Trash2 size={16} />
+                        Remover
+                      </button>
+                    )}
+
+                    <span style={styles.uploadHint}>
+                      JPG, PNG ou WebP • até 5 MB
+                    </span>
+                  </div>
+
+                  <input
+                    ref={capaInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(event) =>
+                      alterarArquivo(
+                        event,
+                        'capa',
+                      )
+                    }
+                    style={styles.hiddenInput}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.identityFields}>
+              <label style={styles.label}>
+                Nome exibido
+              </label>
+
+              <input
+                value={
+                  vitrine.nome_exibicao || ''
+                }
+                onChange={(event) =>
+                  alterarVitrine(
+                    'nome_exibicao',
+                    event.target.value,
+                  )
+                }
+                placeholder="Nome que aparecerá na vitrine"
+                style={styles.input}
+              />
+
+              <label style={styles.label}>
+                Descrição
+              </label>
+
+              <textarea
+                value={vitrine.descricao || ''}
+                onChange={(event) =>
+                  alterarVitrine(
+                    'descricao',
+                    event.target.value,
+                  )
+                }
+                placeholder="Conte um pouco sobre seu negócio"
+                style={styles.textarea}
+              />
+
+              <label style={styles.label}>
+                Mensagem de boas-vindas
+              </label>
+
+              <textarea
+                value={
+                  vitrine.mensagem_boas_vindas ||
+                  ''
+                }
+                onChange={(event) =>
+                  alterarVitrine(
+                    'mensagem_boas_vindas',
+                    event.target.value,
+                  )
+                }
+                placeholder="Uma mensagem para receber seus clientes"
+                style={styles.textarea}
+              />
+
+              <label style={styles.label}>
+                Mensagem quando estiver fechado
+              </label>
+
+              <textarea
+                value={
+                  vitrine.mensagem_fechado || ''
+                }
+                onChange={(event) =>
+                  alterarVitrine(
+                    'mensagem_fechado',
+                    event.target.value,
+                  )
+                }
+                placeholder="Mensagem exibida quando a loja estiver fechada"
+                style={styles.textarea}
+              />
+            </div>
           </div>
         </section>
 
         <section style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <Palette size={21} />
-            <div>
-              <h2 style={styles.sectionHeading}>Cores</h2>
-              <p style={styles.sectionDescription}>
-                Defina as cores usadas pela sua vitrine.
-              </p>
-            </div>
-          </div>
+          <SectionHeader
+            icon={<Palette size={21} />}
+            title="Cores"
+            description="Escolha a personalidade visual da sua loja."
+          />
 
           <div style={styles.card}>
             <div style={styles.colorGrid}>
               <ColorField
                 label="Cor principal"
-                value={vitrine.cor_principal}
+                value={
+                  vitrine.cor_principal
+                }
                 fallback={corPrincipal}
                 onChange={(value) =>
-                  alterarVitrine('cor_principal', value)
+                  alterarVitrine(
+                    'cor_principal',
+                    value,
+                  )
                 }
               />
 
               <ColorField
                 label="Cor secundária"
-                value={vitrine.cor_secundaria}
+                value={
+                  vitrine.cor_secundaria
+                }
                 fallback={corSecundaria}
                 onChange={(value) =>
-                  alterarVitrine('cor_secundaria', value)
+                  alterarVitrine(
+                    'cor_secundaria',
+                    value,
+                  )
                 }
               />
 
               <ColorField
                 label="Cor de destaque"
-                value={vitrine.cor_destaque}
+                value={
+                  vitrine.cor_destaque
+                }
                 fallback={corDestaque}
                 onChange={(value) =>
-                  alterarVitrine('cor_destaque', value)
+                  alterarVitrine(
+                    'cor_destaque',
+                    value,
+                  )
                 }
               />
             </div>
 
-            <div style={styles.previewColorBox}>
-              <div
+            <div style={styles.colorPreview}>
+              <span
                 style={{
-                  ...styles.previewColorPrimary,
-                  background: corPrincipal,
+                  ...styles.colorPreviewItem,
+                  background:
+                    corPrincipal,
                 }}
               />
 
-              <div
+              <span
                 style={{
-                  ...styles.previewColorSecondary,
-                  background: corSecundaria,
+                  ...styles.colorPreviewItem,
+                  background:
+                    corSecundaria,
                 }}
               />
 
-              <div
+              <span
                 style={{
-                  ...styles.previewColorHighlight,
-                  background: corDestaque,
+                  ...styles.colorPreviewItem,
+                  background:
+                    corDestaque,
                 }}
               />
 
-              <span style={styles.previewColorText}>
+              <span
+                style={styles.colorPreviewText}
+              >
                 Prévia das cores
               </span>
             </div>
@@ -531,28 +1311,25 @@ export default function PersonalizacaoNegocioPage({
         </section>
 
         <section style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <Smartphone size={21} />
-            <div>
-              <h2 style={styles.sectionHeading}>
-                Aparência
-              </h2>
-              <p style={styles.sectionDescription}>
-                Personalize o formato e a apresentação da vitrine.
-              </p>
-            </div>
-          </div>
+          <SectionHeader
+            icon={<Smartphone size={21} />}
+            title="Aparência"
+            description="Escolha o formato visual dos elementos."
+          />
 
           <div style={styles.card}>
             <label style={styles.label}>
-              Estilo dos botões
+              Botões
             </label>
 
             <div style={styles.optionsGrid}>
               <OptionButton
-                selected={aparencia.estilo_botoes === 'arredondado'}
-                title="Arredondado"
-                description="Botões com cantos suaves"
+                selected={
+                  aparencia.estilo_botoes ===
+                  'arredondado'
+                }
+                title="Arredondados"
+                description="Mais suaves e acolhedores"
                 onClick={() =>
                   alterarAparencia(
                     'estilo_botoes',
@@ -562,9 +1339,12 @@ export default function PersonalizacaoNegocioPage({
               />
 
               <OptionButton
-                selected={aparencia.estilo_botoes === 'quadrado'}
-                title="Quadrado"
-                description="Botões com cantos discretos"
+                selected={
+                  aparencia.estilo_botoes ===
+                  'quadrado'
+                }
+                title="Retos"
+                description="Mais firmes e modernos"
                 onClick={() =>
                   alterarAparencia(
                     'estilo_botoes',
@@ -575,14 +1355,17 @@ export default function PersonalizacaoNegocioPage({
             </div>
 
             <label style={styles.label}>
-              Estilo dos cartões
+              Cartões
             </label>
 
             <div style={styles.optionsGrid}>
               <OptionButton
-                selected={aparencia.estilo_cards === 'suave'}
-                title="Suave"
-                description="Cartões leves e discretos"
+                selected={
+                  aparencia.estilo_cards ===
+                  'suave'
+                }
+                title="Suaves"
+                description="Leves e discretos"
                 onClick={() =>
                   alterarAparencia(
                     'estilo_cards',
@@ -592,9 +1375,12 @@ export default function PersonalizacaoNegocioPage({
               />
 
               <OptionButton
-                selected={aparencia.estilo_cards === 'destacado'}
-                title="Destacado"
-                description="Cartões mais marcados"
+                selected={
+                  aparencia.estilo_cards ===
+                  'destacado'
+                }
+                title="Destacados"
+                description="Mais marcados na tela"
                 onClick={() =>
                   alterarAparencia(
                     'estilo_cards',
@@ -605,7 +1391,7 @@ export default function PersonalizacaoNegocioPage({
             </div>
 
             <label style={styles.label}>
-              Arredondamento dos cantos
+              Arredondamento
             </label>
 
             <div style={styles.rangeContainer}>
@@ -613,11 +1399,15 @@ export default function PersonalizacaoNegocioPage({
                 type="range"
                 min="0"
                 max="30"
-                value={aparencia.raio_bordas ?? 12}
-                onChange={(e) =>
+                value={
+                  aparencia.raio_bordas ?? 12
+                }
+                onChange={(event) =>
                   alterarAparencia(
                     'raio_bordas',
-                    Number(e.target.value),
+                    Number(
+                      event.target.value,
+                    ),
                   )
                 }
                 style={styles.range}
@@ -634,49 +1424,31 @@ export default function PersonalizacaoNegocioPage({
 
             <div style={styles.optionsGrid}>
               <OptionButton
-                selected={aparencia.tema === 'claro'}
+                selected={
+                  aparencia.tema ===
+                  'claro'
+                }
                 title="Claro"
-                description="Fundo claro e aparência leve"
-                onClick={() =>
-                  alterarAparencia('tema', 'claro')
-                }
-              />
-
-              <OptionButton
-                selected={aparencia.tema === 'escuro'}
-                title="Escuro"
-                description="Fundo escuro e aparência mais marcante"
-                onClick={() =>
-                  alterarAparencia('tema', 'escuro')
-                }
-              />
-            </div>
-
-            <label style={styles.label}>
-              Página inicial
-            </label>
-
-            <div style={styles.optionsGrid}>
-              <OptionButton
-                selected={aparencia.layout_inicio === 'catalogo'}
-                title="Catálogo"
-                description="Produtos como destaque inicial"
+                description="Leve e iluminado"
                 onClick={() =>
                   alterarAparencia(
-                    'layout_inicio',
-                    'catalogo',
+                    'tema',
+                    'claro',
                   )
                 }
               />
 
               <OptionButton
-                selected={aparencia.layout_inicio === 'inicio'}
-                title="Início"
-                description="Apresentação do negócio antes do catálogo"
+                selected={
+                  aparencia.tema ===
+                  'escuro'
+                }
+                title="Escuro"
+                description="Mais marcante e envolvente"
                 onClick={() =>
                   alterarAparencia(
-                    'layout_inicio',
-                    'inicio',
+                    'tema',
+                    'escuro',
                   )
                 }
               />
@@ -684,8 +1456,10 @@ export default function PersonalizacaoNegocioPage({
 
             <Toggle
               label="Mostrar logo"
-              description="Exibir o logo da empresa na vitrine"
-              value={aparencia.mostrar_logo}
+              description="Exibir o logo na vitrine"
+              value={
+                aparencia.mostrar_logo
+              }
               onChange={(value) =>
                 alterarAparencia(
                   'mostrar_logo',
@@ -696,8 +1470,10 @@ export default function PersonalizacaoNegocioPage({
 
             <Toggle
               label="Mostrar nome da loja"
-              description="Exibir o nome do negócio junto à vitrine"
-              value={aparencia.mostrar_nome_loja}
+              description="Exibir o nome junto à identidade"
+              value={
+                aparencia.mostrar_nome_loja
+              }
               onChange={(value) =>
                 alterarAparencia(
                   'mostrar_nome_loja',
@@ -709,23 +1485,191 @@ export default function PersonalizacaoNegocioPage({
         </section>
 
         <section style={styles.section}>
-          <div style={styles.sectionTitle}>
-            <Smartphone size={21} />
-            <div>
-              <h2 style={styles.sectionHeading}>
-                Recursos da vitrine
-              </h2>
-              <p style={styles.sectionDescription}>
-                Controle o que seus clientes podem fazer.
-              </p>
+          <SectionHeader
+            icon={<GripVertical size={21} />}
+            title="Página inicial"
+            description="Escolha quais partes aparecem e em qual ordem."
+          />
+
+          <div style={styles.card}>
+            <div style={styles.orderIntro}>
+              <div>
+                <strong style={styles.orderTitle}>
+                  Organize sua vitrine
+                </strong>
+
+                <p style={styles.orderDescription}>
+                  Segure uma seção e arraste para
+                  mudar sua posição.
+                </p>
+              </div>
+
+              <span style={styles.orderHint}>
+                ↕ arraste
+              </span>
+            </div>
+
+            <div style={styles.sectionsList}>
+              {secoes.map((secao) => {
+                const info =
+                  INFORMACOES_SECOES[
+                    secao.tipo
+                  ] || {
+                    nome: secao.tipo,
+                    descricao:
+                      'Seção da vitrine.',
+                    simbolo: '?',
+                  }
+
+                return (
+                  <div
+                    key={secao.id}
+                    draggable
+                    onDragStart={(event) =>
+                      iniciarArraste(
+                        event,
+                        secao.id,
+                      )
+                    }
+                    onDragOver={(event) =>
+                      event.preventDefault()
+                    }
+                    onDrop={(event) =>
+                      soltarSecao(
+                        event,
+                        secao.id,
+                      )
+                    }
+                    onDragEnd={() =>
+                      setArrastandoId(null)
+                    }
+                    style={{
+                      ...styles.sectionItem,
+                      ...(arrastandoId ===
+                      secao.id
+                        ? styles.sectionItemDragging
+                        : {}),
+                    }}
+                  >
+                    <GripVertical
+                      size={20}
+                      color="#9AA59E"
+                    />
+
+                    <div
+                      style={{
+                        ...styles.sectionSymbol,
+                        background:
+                          secao.visivel
+                            ? corSecundaria
+                            : '#EEF1EF',
+                        color:
+                          secao.visivel
+                            ? corDestaque
+                            : '#87918A',
+                      }}
+                    >
+                      {info.simbolo}
+                    </div>
+
+                    <div
+                      style={
+                        styles.sectionItemInfo
+                      }
+                    >
+                      <div
+                        style={
+                          styles.sectionItemTop
+                        }
+                      >
+                        <strong
+                          style={
+                            styles.sectionItemName
+                          }
+                        >
+                          {info.nome}
+                        </strong>
+
+                        <span
+                          style={
+                            styles.sectionNumber
+                          }
+                        >
+                          {secao.ordem}
+                        </span>
+                      </div>
+
+                      <span
+                        style={
+                          styles.sectionItemDescription
+                        }
+                      >
+                        {info.descricao}
+                      </span>
+
+                      <input
+                        value={
+                          secao.titulo || ''
+                        }
+                        onChange={(event) =>
+                          alterarSecao(
+                            secao.id,
+                            'titulo',
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Título exibido"
+                        style={
+                          styles.sectionTitleInput
+                        }
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        alterarSecao(
+                          secao.id,
+                          'visivel',
+                          !secao.visivel,
+                        )
+                      }
+                      style={
+                        styles.visibilityButton
+                      }
+                      aria-label={
+                        secao.visivel
+                          ? 'Ocultar seção'
+                          : 'Mostrar seção'
+                      }
+                    >
+                      {secao.visivel ? (
+                        <Eye size={20} />
+                      ) : (
+                        <EyeOff size={20} />
+                      )}
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           </div>
+        </section>
+
+        <section style={styles.section}>
+          <SectionHeader
+            icon={<Smartphone size={21} />}
+            title="Recursos"
+            description="Escolha o que seus clientes podem fazer."
+          />
 
           <div style={styles.card}>
             <Toggle
               label="Mostrar preços"
               description="Exibir os preços dos produtos"
-              value={vitrine.mostrar_precos}
+              value={
+                vitrine.mostrar_precos
+              }
               onChange={(value) =>
                 alterarVitrine(
                   'mostrar_precos',
@@ -736,8 +1680,10 @@ export default function PersonalizacaoNegocioPage({
 
             <Toggle
               label="Permitir pedidos"
-              description="Permitir que clientes façam pedidos pela vitrine"
-              value={vitrine.permitir_pedidos}
+              description="Permitir pedidos pela vitrine"
+              value={
+                vitrine.permitir_pedidos
+              }
               onChange={(value) =>
                 alterarVitrine(
                   'permitir_pedidos',
@@ -748,8 +1694,10 @@ export default function PersonalizacaoNegocioPage({
 
             <Toggle
               label="Permitir favoritos"
-              description="Permitir que clientes favoritem produtos"
-              value={vitrine.permitir_favoritos}
+              description="Permitir que clientes favorite produtos"
+              value={
+                vitrine.permitir_favoritos
+              }
               onChange={(value) =>
                 alterarVitrine(
                   'permitir_favoritos',
@@ -760,8 +1708,10 @@ export default function PersonalizacaoNegocioPage({
 
             <Toggle
               label="Permitir compartilhamento"
-              description="Permitir o compartilhamento da vitrine"
-              value={vitrine.permitir_compartilhamento}
+              description="Permitir compartilhar a vitrine"
+              value={
+                vitrine.permitir_compartilhamento
+              }
               onChange={(value) =>
                 alterarVitrine(
                   'permitir_compartilhamento',
@@ -779,7 +1729,7 @@ export default function PersonalizacaoNegocioPage({
             disabled={salvando}
           >
             <RotateCcw size={18} />
-            Restaurar aparência padrão
+            Restaurar padrão
           </button>
 
           <button
@@ -788,7 +1738,10 @@ export default function PersonalizacaoNegocioPage({
             disabled={salvando}
           >
             <Save size={18} />
-            {salvando ? 'Salvando...' : 'Salvar personalização'}
+
+            {salvando
+              ? 'Salvando...'
+              : 'Salvar personalização'}
           </button>
         </div>
       </main>
@@ -796,11 +1749,30 @@ export default function PersonalizacaoNegocioPage({
   )
 }
 
-interface ColorFieldProps {
-  label: string
-  value: string | null
-  fallback: string
-  onChange: (value: string) => void
+function SectionHeader({
+  icon,
+  title,
+  description,
+}: {
+  icon: React.ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <div style={styles.sectionTitle}>
+      {icon}
+
+      <div>
+        <h2 style={styles.sectionHeading}>
+          {title}
+        </h2>
+
+        <p style={styles.sectionDescription}>
+          {description}
+        </p>
+      </div>
+    </div>
+  )
 }
 
 function ColorField({
@@ -808,35 +1780,42 @@ function ColorField({
   value,
   fallback,
   onChange,
-}: ColorFieldProps) {
+}: {
+  label: string
+  value: string | null
+  fallback: string
+  onChange: (value: string) => void
+}) {
   return (
     <div>
-      <label style={styles.label}>{label}</label>
+      <label style={styles.label}>
+        {label}
+      </label>
 
       <div style={styles.colorInputRow}>
         <input
           type="color"
           value={value || fallback}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(event) =>
+            onChange(event.target.value)
+          }
           style={styles.colorPicker}
         />
 
         <input
           value={value || ''}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(event) =>
+            onChange(event.target.value)
+          }
           placeholder={fallback}
-          style={styles.input}
+          style={{
+            ...styles.input,
+            marginBottom: 0,
+          }}
         />
       </div>
     </div>
   )
-}
-
-interface OptionButtonProps {
-  selected: boolean
-  title: string
-  description: string
-  onClick: () => void
 }
 
 function OptionButton({
@@ -844,24 +1823,35 @@ function OptionButton({
   title,
   description,
   onClick,
-}: OptionButtonProps) {
+}: {
+  selected: boolean
+  title: string
+  description: string
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       style={{
         ...styles.optionButton,
-        ...(selected ? styles.optionButtonSelected : {}),
+        ...(selected
+          ? styles.optionButtonSelected
+          : {}),
       }}
     >
       <div style={styles.optionTop}>
         <span
           style={{
             ...styles.radio,
-            ...(selected ? styles.radioSelected : {}),
+            ...(selected
+              ? styles.radioSelected
+              : {}),
           }}
         >
-          {selected && <span style={styles.radioDot} />}
+          {selected && (
+            <span style={styles.radioDot} />
+          )}
         </span>
 
         <strong style={styles.optionTitle}>
@@ -876,19 +1866,17 @@ function OptionButton({
   )
 }
 
-interface ToggleProps {
-  label: string
-  description: string
-  value: boolean
-  onChange: (value: boolean) => void
-}
-
 function Toggle({
   label,
   description,
   value,
   onChange,
-}: ToggleProps) {
+}: {
+  label: string
+  description: string
+  value: boolean
+  onChange: (value: boolean) => void
+}) {
   return (
     <div style={styles.toggleRow}>
       <div style={styles.toggleText}>
@@ -907,13 +1895,17 @@ function Toggle({
         aria-label={label}
         style={{
           ...styles.toggle,
-          ...(value ? styles.toggleActive : {}),
+          ...(value
+            ? styles.toggleActive
+            : {}),
         }}
       >
         <span
           style={{
             ...styles.toggleCircle,
-            ...(value ? styles.toggleCircleActive : {}),
+            ...(value
+              ? styles.toggleCircleActive
+              : {}),
           }}
         />
       </button>
@@ -921,7 +1913,7 @@ function Toggle({
   )
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<string, CSSProperties> = {
   page: {
     minHeight: '100vh',
     background: '#F7F9F7',
@@ -945,15 +1937,6 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '18px 24px',
   },
 
-  headerContent: {
-    maxWidth: 1100,
-    margin: '18px auto 0',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 20,
-  },
-
   backButton: {
     border: 'none',
     background: 'transparent',
@@ -964,6 +1947,21 @@ const styles: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: 15,
     padding: 0,
+  },
+
+  headerContent: {
+    maxWidth: 1200,
+    margin: '18px auto 0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 20,
+  },
+
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
   },
 
   title: {
@@ -993,10 +1991,24 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
   },
 
+  saveHeaderButton: {
+    border: 'none',
+    background: '#159447',
+    color: '#FFFFFF',
+    borderRadius: 10,
+    padding: '11px 16px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 8,
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: 700,
+  },
+
   content: {
-    maxWidth: 1100,
+    maxWidth: 1200,
     margin: '0 auto',
-    padding: '28px 24px 50px',
+    padding: '28px 24px 60px',
   },
 
   section: {
@@ -1029,7 +2041,135 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #E2E9E4',
     borderRadius: 16,
     padding: 22,
-    boxShadow: '0 2px 8px rgba(20, 40, 25, 0.03)',
+    boxShadow:
+      '0 2px 8px rgba(20, 40, 25, 0.03)',
+  },
+
+  identityGrid: {
+    display: 'grid',
+    gridTemplateColumns:
+      'minmax(250px, 0.7fr) minmax(320px, 1.3fr)',
+    gap: 22,
+  },
+
+  identityFields: {
+    marginTop: 24,
+  },
+
+  logoUploadArea: {
+    border: '1px solid #E0E7E2',
+    borderRadius: 14,
+    padding: 16,
+    background: '#FAFBFA',
+    minHeight: 155,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+  },
+
+  logoPreview: {
+    width: 105,
+    height: 105,
+    objectFit: 'contain',
+    borderRadius: 14,
+    background: '#FFFFFF',
+    border: '1px solid #E4EAE5',
+  },
+
+  logoPlaceholder: {
+    width: 105,
+    height: 105,
+    borderRadius: 14,
+    background: '#EEF3EF',
+    color: '#87918B',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    fontSize: 11,
+    flexShrink: 0,
+  },
+
+  uploadActions: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+
+  uploadButton: {
+    border: '1px solid #CFE0D4',
+    background: '#FFFFFF',
+    color: '#0F6F38',
+    borderRadius: 9,
+    padding: '9px 12px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
+  },
+
+  uploadHint: {
+    color: '#87918B',
+    fontSize: 11,
+    lineHeight: 1.4,
+  },
+
+  hiddenInput: {
+    display: 'none',
+  },
+
+  coverUploadArea: {
+    border: '1px solid #E0E7E2',
+    borderRadius: 14,
+    overflow: 'hidden',
+    background: '#FAFBFA',
+  },
+
+  coverPreview: {
+    display: 'block',
+    width: '100%',
+    height: 165,
+    objectFit: 'cover',
+  },
+
+  coverPlaceholder: {
+    height: 165,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    color: '#87918B',
+    padding: 20,
+    textAlign: 'center',
+  },
+
+  coverActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 9,
+    flexWrap: 'wrap',
+    padding: 12,
+    background: '#FFFFFF',
+    borderTop: '1px solid #E5EBE6',
+  },
+
+  removeButton: {
+    border: '1px solid #E6D6D6',
+    background: '#FFFFFF',
+    color: '#9A4141',
+    borderRadius: 9,
+    padding: '9px 12px',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+    cursor: 'pointer',
+    fontSize: 13,
+    fontWeight: 600,
   },
 
   label: {
@@ -1055,7 +2195,7 @@ const styles: Record<string, React.CSSProperties> = {
 
   textarea: {
     width: '100%',
-    minHeight: 95,
+    minHeight: 90,
     boxSizing: 'border-box',
     resize: 'vertical',
     border: '1px solid #D8E1DB',
@@ -1072,7 +2212,7 @@ const styles: Record<string, React.CSSProperties> = {
   colorGrid: {
     display: 'grid',
     gridTemplateColumns:
-      'repeat(auto-fit, minmax(220px, 1fr))',
+      'repeat(auto-fit, minmax(210px, 1fr))',
     gap: 18,
   },
 
@@ -1090,37 +2230,26 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 9,
     background: '#FFFFFF',
     cursor: 'pointer',
+    flexShrink: 0,
   },
 
-  previewColorBox: {
+  colorPreview: {
     display: 'flex',
     alignItems: 'center',
     gap: 9,
-    marginTop: 8,
+    marginTop: 18,
     padding: 12,
     background: '#F7F9F7',
     borderRadius: 10,
   },
 
-  previewColorPrimary: {
+  colorPreviewItem: {
     width: 28,
     height: 28,
     borderRadius: 8,
   },
 
-  previewColorSecondary: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-  },
-
-  previewColorHighlight: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-  },
-
-  previewColorText: {
+  colorPreviewText: {
     color: '#66706A',
     fontSize: 13,
     marginLeft: 4,
@@ -1129,7 +2258,7 @@ const styles: Record<string, React.CSSProperties> = {
   optionsGrid: {
     display: 'grid',
     gridTemplateColumns:
-      'repeat(auto-fit, minmax(220px, 1fr))',
+      'repeat(auto-fit, minmax(210px, 1fr))',
     gap: 12,
     marginBottom: 22,
   },
@@ -1244,7 +2373,6 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#C8D2CC',
     padding: 3,
     cursor: 'pointer',
-    position: 'relative',
     flexShrink: 0,
   },
 
@@ -1263,6 +2391,125 @@ const styles: Record<string, React.CSSProperties> = {
 
   toggleCircleActive: {
     transform: 'translateX(21px)',
+  },
+
+  orderIntro: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 15,
+    paddingBottom: 16,
+    borderBottom: '1px solid #EDF1EE',
+    marginBottom: 14,
+  },
+
+  orderTitle: {
+    display: 'block',
+    color: '#303934',
+    fontSize: 15,
+  },
+
+  orderDescription: {
+    margin: '5px 0 0',
+    color: '#66706A',
+    fontSize: 13,
+  },
+
+  orderHint: {
+    color: '#7B867F',
+    fontSize: 12,
+    whiteSpace: 'nowrap',
+  },
+
+  sectionsList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 10,
+  },
+
+  sectionItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    background: '#FFFFFF',
+    border: '1px solid #DCE5DF',
+    borderRadius: 13,
+    padding: 11,
+    cursor: 'grab',
+  },
+
+  sectionItemDragging: {
+    opacity: 0.55,
+    transform: 'scale(0.99)',
+  },
+
+  sectionSymbol: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 14,
+    fontWeight: 800,
+    flexShrink: 0,
+  },
+
+  sectionItemInfo: {
+    minWidth: 0,
+    flex: 1,
+  },
+
+  sectionItemTop: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 7,
+  },
+
+  sectionItemName: {
+    color: '#303934',
+    fontSize: 14,
+  },
+
+  sectionNumber: {
+    color: '#8B958F',
+    fontSize: 11,
+    background: '#F0F3F1',
+    borderRadius: 20,
+    padding: '2px 7px',
+  },
+
+  sectionItemDescription: {
+    display: 'block',
+    color: '#7A847E',
+    fontSize: 11,
+    marginTop: 3,
+    lineHeight: 1.3,
+  },
+
+  sectionTitleInput: {
+    width: '100%',
+    boxSizing: 'border-box',
+    marginTop: 8,
+    border: '1px solid #E2E8E4',
+    borderRadius: 7,
+    padding: '7px 8px',
+    fontSize: 12,
+    color: '#303934',
+    outline: 'none',
+    background: '#FAFBFA',
+  },
+
+  visibilityButton: {
+    border: 'none',
+    background: 'transparent',
+    color: '#0F6F38',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    padding: 7,
+    flexShrink: 0,
   },
 
   bottomActions: {
@@ -1321,12 +2568,17 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   emptyCard: {
-    maxWidth: 1100,
-    margin: '28px auto',
+    maxWidth: 700,
+    margin: '40px auto',
     background: '#FFFFFF',
     border: '1px solid #E2E9E4',
     borderRadius: 16,
     padding: 30,
+  },
+
+  emptyTitle: {
+    margin: '0 0 8px',
+    fontSize: 21,
   },
 
   emptyText: {
