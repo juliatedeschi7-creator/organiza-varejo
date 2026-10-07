@@ -416,11 +416,18 @@ export default function PaginaPublicaNegocioPage({
       } else {
         setFotos([])
       }
-    } catch (error) {
-      console.error('Erro ao carregar página pública:', error)
-      setErro(
-        'Não foi possível carregar a página do negócio.',
-      )
+ } catch (error) {
+  console.error('Erro ao carregar página pública:', error)
+
+  const mensagem =
+    error instanceof Error
+      ? error.message
+      : 'Erro desconhecido ao carregar a vitrine.'
+
+  setErro(
+    `Erro ao carregar a página do negócio: ${mensagem}`,
+  )
+}
     } finally {
       setCarregando(false)
     }
