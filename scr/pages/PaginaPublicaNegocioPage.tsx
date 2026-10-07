@@ -190,9 +190,13 @@ export default function PaginaPublicaNegocioPage({
   }, [empresaId])
 
   async function carregarPagina() {
+    let etapa = 'início'
+
     try {
       setCarregando(true)
       setErro('')
+
+      etapa = 'empresa'
 
       const { data: empresaData, error: empresaError } =
         await supabase
@@ -220,6 +224,8 @@ export default function PaginaPublicaNegocioPage({
       }
 
       setEmpresa(empresaData as Empresa)
+
+      etapa = 'vitrine'
 
       const { data: vitrineData, error: vitrineError } =
         await supabase
@@ -257,6 +263,8 @@ export default function PaginaPublicaNegocioPage({
       if (vitrineData) {
         setVitrine(vitrineData as Vitrine)
 
+        etapa = 'aparência da vitrine'
+
         const {
           data: aparenciaData,
           error: aparenciaError,
@@ -291,6 +299,8 @@ export default function PaginaPublicaNegocioPage({
           })
         }
       }
+
+      etapa = 'filiais'
 
       const {
         data: filiaisData,
@@ -334,6 +344,8 @@ export default function PaginaPublicaNegocioPage({
         )
       }
 
+      etapa = 'categorias públicas'
+
       const {
         data: categoriasData,
         error: categoriasError,
@@ -360,6 +372,8 @@ export default function PaginaPublicaNegocioPage({
       setCategorias(
         (categoriasData || []) as Categoria[],
       )
+
+      etapa = 'produtos'
 
       const {
         data: produtosData,
@@ -417,6 +431,8 @@ export default function PaginaPublicaNegocioPage({
       setProdutos(produtosAtivos)
 
       if (produtosAtivos.length > 0) {
+        etapa = 'fotos dos produtos'
+
         const ids = produtosAtivos.map(
           (produto) => produto.id,
         )
@@ -451,16 +467,55 @@ export default function PaginaPublicaNegocioPage({
     } catch (error) {
       console.error(
         'Erro ao carregar página pública:',
-        error,
+        {
+          etapa,
+          error,
+        },
       )
 
-      const mensagem =
-        error instanceof Error
-          ? error.message
-          : 'Erro desconhecido ao carregar a vitrine.'
+      let mensagem = ''
+
+      if (error && typeof error === 'object') {
+        const erroSupabase = error as {
+          message?: string
+          details?: string
+          hint?: string
+          code?: string
+        }
+
+        mensagem = [
+          erroSupabase.message
+            ? `Mensagem: ${erroSupabase.message}`
+            : '',
+          erroSupabase.details
+            ? `Detalhes: ${erroSupabase.details}`
+            : '',
+          erroSupabase.hint
+            ? `Dica: ${erroSupabase.hint}`
+            : '',
+          erroSupabase.code
+            ? `Código: ${erroSupabase.code}`
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' | ')
+      }
+
+      if (!mensagem) {
+        try {
+          mensagem = JSON.stringify(error)
+        } catch {
+          mensagem = String(error)
+        }
+      }
+
+      if (!mensagem || mensagem === '{}') {
+        mensagem =
+          'O sistema não conseguiu identificar a mensagem retornada pelo banco de dados.'
+      }
 
       setErro(
-        `Erro ao carregar a página do negócio: ${mensagem}`,
+        `Erro na etapa "${etapa}". ${mensagem}`,
       )
     } finally {
       setCarregando(false)
