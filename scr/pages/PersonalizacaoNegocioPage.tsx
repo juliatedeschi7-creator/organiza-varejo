@@ -363,8 +363,6 @@ async function carregar() {
     let vitrineAtual: Vitrine
 
     if (!vitrineData) {
-     
-    if (!vitrineData) {
 
       const nomeBase =
         empresaData.nome_fantasia || 'Minha loja'
