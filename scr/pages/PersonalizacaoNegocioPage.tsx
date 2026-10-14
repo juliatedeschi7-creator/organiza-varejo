@@ -197,6 +197,17 @@ const CONFIG_EXTRA_PADRAO: ConfiguracaoExtra = {
   reduzirAnimacoes: false,
 }
 
+function normalizarSlugVitrine(nome: string) {
+  return nome
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+}
+
 const FONTES = [
   { nome: 'Elegante', valor: 'Georgia, serif' },
   { nome: 'Moderna', valor: 'Inter, system-ui, sans-serif' },
@@ -362,6 +373,10 @@ async function carregar() {
             nome_exibicao:
               empresaData.nome_fantasia ||
               'Minha loja',
+            slug: normalizarSlugVitrine(
+              empresaData.nome_fantasia ||
+              'Minha loja'
+            ),
             logo_url:
               empresaData.logo_url || null,
             cor_principal: '#159447',
