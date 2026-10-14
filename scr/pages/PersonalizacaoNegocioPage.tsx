@@ -363,6 +363,41 @@ async function carregar() {
     let vitrineAtual: Vitrine
 
     if (!vitrineData) {
+     
+    if (!vitrineData) {
+
+      const nomeBase =
+        empresaData.nome_fantasia || 'Minha loja'
+
+      const slugBase =
+        normalizarSlugVitrine(nomeBase) || 'minha-loja'
+
+      const { data: slugsExistentes, error: slugsError } =
+        await supabase
+          .from('vitrines')
+          .select('slug')
+          .like('slug', `${slugBase}%`)
+
+      if (slugsError) {
+        throw new Error(
+          `Erro ao verificar endereço da vitrine: ${slugsError.message}`,
+        )
+      }
+
+      const slugsUsados = new Set(
+        (slugsExistentes || [])
+          .map((item) => item.slug)
+          .filter(Boolean),
+      )
+
+      let slugFinal = slugBase
+      let sufixo = 2
+
+      while (slugsUsados.has(slugFinal)) {
+        slugFinal = `${slugBase}-${sufixo}`
+        sufixo += 1
+      }
+
       etapa = 'criação da vitrine'
 
       const { data: novaVitrine, error: novaVitrineError } =
