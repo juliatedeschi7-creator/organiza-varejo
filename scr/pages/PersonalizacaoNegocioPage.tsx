@@ -406,10 +406,7 @@ async function carregar() {
             nome_exibicao:
               empresaData.nome_fantasia ||
               'Minha loja',
-            slug: normalizarSlugVitrine(
-              empresaData.nome_fantasia ||
-              'Minha loja'
-            ),
+            slug: slugFinal,
             logo_url:
               empresaData.logo_url || null,
             cor_principal: '#159447',
