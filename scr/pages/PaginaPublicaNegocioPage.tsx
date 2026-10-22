@@ -714,9 +714,11 @@ export default function PaginaPublicaNegocioPage({
             </button>
           )}
 
-          <div style={styles.organizaLabel}>
-            organiza
-          </div>
+<img
+  src="/logo-organiza-transparente.png"
+  alt="Organiza"
+  style={styles.organizaLogo}
+/>
         </div>
       </header>
 
@@ -1272,13 +1274,13 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
   },
 
-  organizaLabel: {
-    marginLeft: 'auto',
-    fontWeight: 800,
-    fontSize: 17,
-    color: '#159447',
-    letterSpacing: '-0.3px',
-  },
+organizaLogo: {
+  width: 36,
+  height: 36,
+  objectFit: 'contain',
+  marginLeft: 'auto',
+  display: 'block',
+},
 
   backButton: {
     border: 'none',
