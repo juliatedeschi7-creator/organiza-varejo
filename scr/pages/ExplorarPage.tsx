@@ -1,6 +1,8 @@
+
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
+
 interface Loja {
   empresa_id: string
   empresa_slug: string | null
@@ -24,9 +26,11 @@ interface Loja {
   filial_latitude: number | null
   filial_longitude: number | null
 }
+
 interface ExplorarPageProps {
   onVoltar?: () => void
 }
+
 export default function ExplorarPage({
   onVoltar,
 }: ExplorarPageProps) {
@@ -34,22 +38,28 @@ export default function ExplorarPage({
   const [busca, setBusca] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
+
   useEffect(() => {
     let ativo = true
+
     async function carregarLojas() {
       setCarregando(true)
       setErro('')
+
       const { data, error } = await supabase
         .from('catalogo_publico_loja')
         .select('*')
         .order('nome_fantasia', {
           ascending: true,
         })
+
       if (!ativo) {
         return
       }
+
       if (error) {
         console.error('Erro ao carregar lojas:', error)
+
         setErro(
           'Não foi possível carregar as lojas agora. Tente novamente.',
         )
@@ -57,32 +67,42 @@ export default function ExplorarPage({
         setCarregando(false)
         return
       }
+
       setLojas((data ?? []) as Loja[])
       setCarregando(false)
     }
+
     carregarLojas()
+
     return () => {
       ativo = false
     }
   }, [])
+
   const lojasFiltradas = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
+    const normalizar = (texto: string | null | undefined) =>
+      (texto ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLocaleLowerCase('pt-BR')
+        .trim()
+
+    const termo = normalizar(busca)
+
     if (!termo) {
       return lojas
     }
+
     return lojas.filter((loja) => {
-      const nome =
-        loja.nome_fantasia?.toLowerCase() ?? ''
-      const cidade =
-        loja.filial_cidade?.toLowerCase() ??
-        loja.empresa_cidade?.toLowerCase() ??
-        ''
-      const estado =
-        loja.filial_estado?.toLowerCase() ??
-        loja.empresa_estado?.toLowerCase() ??
-        ''
-      const filial =
-        loja.filial_nome?.toLowerCase() ?? ''
+      const nome = normalizar(loja.nome_fantasia)
+      const cidade = normalizar(
+        loja.filial_cidade || loja.empresa_cidade,
+      )
+      const estado = normalizar(
+        loja.filial_estado || loja.empresa_estado,
+      )
+      const filial = normalizar(loja.filial_nome)
+
       return (
         nome.includes(termo) ||
         cidade.includes(termo) ||
@@ -91,31 +111,46 @@ export default function ExplorarPage({
       )
     })
   }, [lojas, busca])
+
   function abrirLoja(slug: string | null) {
-    if (!slug) {
+    if (!slug?.trim()) {
       return
     }
-    window.location.assign(`/vitrine/${slug}`)
+
+    /*
+     * O App.tsx reconhece vitrines públicas por um único segmento:
+     * /slug-da-empresa
+     *
+     * A VitrinePublicaSlugPage recebe esse slug e carrega a vitrine.
+     */
+    window.location.assign(`/${encodeURIComponent(slug.trim())}`)
   }
+
   function obterLocalizacao(loja: Loja) {
     const cidade =
       loja.filial_cidade || loja.empresa_cidade
     const estado =
       loja.filial_estado || loja.empresa_estado
+
     if (cidade && estado) {
       return `${cidade} • ${estado}`
     }
+
     if (cidade) {
       return cidade
     }
+
     if (estado) {
       return estado
     }
+
     return 'Localização não informada'
   }
+
   function obterLogo(loja: Loja) {
     return loja.empresa_logo_url
   }
+
   return (
     <main className="explorar-page">
       <div className="explorar-container">
@@ -131,18 +166,23 @@ export default function ExplorarPage({
                 <span aria-hidden="true">←</span>
               </button>
             ) : null}
+
             <Logo />
           </div>
+
           <div className="explorar-heading">
             <span className="explorar-eyebrow">
               Organiza Varejo
             </span>
+
             <h1>Explore</h1>
+
             <p>
               Encontre lojas, serviços e negócios locais.
             </p>
           </div>
         </header>
+
         <section
           className="explorar-search-section"
           aria-label="Pesquisar negócios"
@@ -153,6 +193,7 @@ export default function ExplorarPage({
           >
             Buscar
           </label>
+
           <div className="explorar-search">
             <span
               className="explorar-search-icon"
@@ -160,16 +201,16 @@ export default function ExplorarPage({
             >
               ⌕
             </span>
+
             <input
               id="explorar-busca"
               type="search"
               value={busca}
-              onChange={(event) =>
-                setBusca(event.target.value)
-              }
+              onChange={(event) => setBusca(event.target.value)}
               placeholder="Buscar lojas ou negócios"
               autoComplete="off"
             />
+
             {busca ? (
               <button
                 type="button"
@@ -182,6 +223,7 @@ export default function ExplorarPage({
             ) : null}
           </div>
         </section>
+
         <section className="explorar-content">
           <div className="explorar-section-heading">
             <div>
@@ -190,6 +232,7 @@ export default function ExplorarPage({
                   ? 'Resultados'
                   : 'Negócios para você conhecer'}
               </h2>
+
               {!carregando && !erro ? (
                 <span>
                   {lojasFiltradas.length}{' '}
@@ -200,6 +243,7 @@ export default function ExplorarPage({
               ) : null}
             </div>
           </div>
+
           {carregando ? (
             <div className="explorar-state">
               <div
@@ -209,13 +253,16 @@ export default function ExplorarPage({
               <p>Carregando negócios...</p>
             </div>
           ) : null}
+
           {!carregando && erro ? (
             <div className="explorar-state explorar-state-error">
               <div className="explorar-state-icon">
                 !
               </div>
+
               <h3>Não foi possível carregar</h3>
               <p>{erro}</p>
+
               <button
                 type="button"
                 className="explorar-retry-button"
@@ -225,6 +272,7 @@ export default function ExplorarPage({
               </button>
             </div>
           ) : null}
+
           {!carregando &&
           !erro &&
           lojasFiltradas.length === 0 ? (
@@ -232,11 +280,13 @@ export default function ExplorarPage({
               <div className="explorar-empty-icon">
                 ⌕
               </div>
+
               <h3>
                 {busca
                   ? 'Nenhum negócio encontrado'
                   : 'Ainda não há negócios para mostrar'}
               </h3>
+
               <p>
                 {busca
                   ? 'Tente buscar por outro nome ou localização.'
@@ -244,6 +294,7 @@ export default function ExplorarPage({
               </p>
             </div>
           ) : null}
+
           {!carregando &&
           !erro &&
           lojasFiltradas.length > 0 ? (
@@ -251,8 +302,8 @@ export default function ExplorarPage({
               {lojasFiltradas.map((loja) => {
                 const logo = obterLogo(loja)
                 const nome =
-                  loja.nome_fantasia ||
-                  'Negócio sem nome'
+                  loja.nome_fantasia || 'Negócio sem nome'
+
                 return (
                   <article
                     key={`${loja.empresa_id}-${loja.filial_id ?? 'empresa'}`}
@@ -261,9 +312,7 @@ export default function ExplorarPage({
                     <button
                       type="button"
                       className="loja-card-button"
-                      onClick={() =>
-                        abrirLoja(loja.empresa_slug)
-                      }
+                      onClick={() => abrirLoja(loja.empresa_slug)}
                       disabled={!loja.empresa_slug}
                     >
                       <div className="loja-card-visual">
@@ -285,9 +334,11 @@ export default function ExplorarPage({
                           </div>
                         )}
                       </div>
+
                       <div className="loja-card-content">
                         <div className="loja-card-title-row">
                           <h3>{nome}</h3>
+
                           <span
                             className="loja-card-arrow"
                             aria-hidden="true"
@@ -295,14 +346,17 @@ export default function ExplorarPage({
                             →
                           </span>
                         </div>
+
                         <p className="loja-card-location">
                           {obterLocalizacao(loja)}
                         </p>
+
                         {loja.filial_nome ? (
                           <p className="loja-card-branch">
                             {loja.filial_nome}
                           </p>
                         ) : null}
+
                         <span className="loja-card-link">
                           Ver loja
                         </span>
