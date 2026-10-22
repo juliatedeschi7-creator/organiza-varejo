@@ -1,9 +1,11 @@
+
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 
 import LoginPage from './pages/LoginPage'
 import CadastroPage from './pages/CadastroPage'
 import InicioPage from './pages/InicioPage'
+import ExplorarPage from './pages/ExplorarPage'
 import CadastrarNegocioPage from './pages/CadastrarNegocioPage'
 import NegocioPage from './pages/NegocioPage'
 import ProdutosPage from './pages/ProdutosPage'
@@ -18,6 +20,7 @@ type Page =
   | 'login'
   | 'cadastro'
   | 'inicio'
+  | 'explorar'
   | 'cadastrar-negocio'
   | 'negocio'
   | 'produtos'
@@ -41,13 +44,15 @@ function obterSlugDaUrl() {
     return null
   }
 
-  const slug = decodeURIComponent(partes[0]).trim()
+  try {
+    const slug = decodeURIComponent(partes[0])
+      .trim()
+      .toLowerCase()
 
-  if (!slug) {
+    return slug || null
+  } catch {
     return null
   }
-
-  return slug.toLowerCase()
 }
 
 export default function App() {
@@ -63,14 +68,7 @@ export default function App() {
 
     async function iniciar() {
       /*
-       * Uma vitrine pública não depende de autenticação.
-       *
-       * Se a pessoa entrou diretamente em:
-       *
-       * /mariamagnolia
-       *
-       * deixamos a VitrinePublicaSlugPage localizar a empresa
-       * pelo slug.
+       * A vitrine pública não depende de autenticação.
        */
       if (ehVitrinePublica) {
         if (montado) {
@@ -95,14 +93,6 @@ export default function App() {
         return
       }
 
-      /*
-       * A conta pertence ao USUÁRIO, não a uma única empresa.
-       *
-       * Depois do login sempre vamos para a InicioPage.
-       *
-       * A InicioPage consulta membros_empresa e apresenta
-       * todas as empresas às quais o usuário tem acesso.
-       */
       setEmpresaId(null)
       setPage('inicio')
       setCarregando(false)
@@ -110,10 +100,6 @@ export default function App() {
 
     iniciar()
 
-    /*
-     * Não precisamos observar mudanças de autenticação
-     * enquanto estamos em uma vitrine pública.
-     */
     if (ehVitrinePublica) {
       return () => {
         montado = false
@@ -146,18 +132,12 @@ export default function App() {
   }, [ehVitrinePublica])
 
   /*
-   * ============================================
-   * VITRINE PÚBLICA
-   * ============================================
-   *
-   * Esta parte vem antes do login porque a vitrine
-   * deve ser acessível por qualquer pessoa.
+   * Vitrine pública:
+   * pode ser aberta diretamente pelo slug da empresa.
    */
   if (ehVitrinePublica && slugPublico) {
     return (
-      <VitrinePublicaSlugPage
-        slug={slugPublico}
-      />
+      <VitrinePublicaSlugPage slug={slugPublico} />
     )
   }
 
@@ -200,12 +180,7 @@ export default function App() {
   if (page === 'inicio') {
     return (
       <InicioPage
-        onExplorar={() => {
-          /*
-           * O Mercado Local será conectado aqui.
-           */
-          console.log('Abrir Mercado Local')
-        }}
+        onExplorar={() => setPage('explorar')}
         onCadastrarNegocio={() => {
           setPage('cadastrar-negocio')
         }}
@@ -216,6 +191,18 @@ export default function App() {
           setEmpresaId(id)
           setPage('negocio')
         }}
+      />
+    )
+  }
+
+  /*
+   * Mercado Local:
+   * a listagem usa catalogo_publico_loja.
+   */
+  if (page === 'explorar') {
+    return (
+      <ExplorarPage
+        onVoltar={() => setPage('inicio')}
       />
     )
   }
@@ -236,14 +223,12 @@ export default function App() {
   }
 
   /*
-   * Todas as telas abaixo dependem de uma empresa selecionada.
+   * As telas seguintes dependem de uma empresa selecionada.
    */
   if (!empresaId) {
     return (
       <InicioPage
-        onExplorar={() => {
-          console.log('Abrir Mercado Local')
-        }}
+        onExplorar={() => setPage('explorar')}
         onCadastrarNegocio={() => {
           setPage('cadastrar-negocio')
         }}
@@ -294,9 +279,7 @@ export default function App() {
     return (
       <ProdutosPage
         empresaId={empresaId}
-        onVoltar={() => {
-          setPage('negocio')
-        }}
+        onVoltar={() => setPage('negocio')}
       />
     )
   }
@@ -305,9 +288,7 @@ export default function App() {
     return (
       <CategoriasPage
         empresaId={empresaId}
-        onVoltar={() => {
-          setPage('negocio')
-        }}
+        onVoltar={() => setPage('negocio')}
       />
     )
   }
@@ -316,9 +297,7 @@ export default function App() {
     return (
       <EditarEmpresaPage
         empresaId={empresaId}
-        onVoltar={() => {
-          setPage('negocio')
-        }}
+        onVoltar={() => setPage('negocio')}
       />
     )
   }
@@ -327,9 +306,7 @@ export default function App() {
     return (
       <EditarEnderecoPage
         empresaId={empresaId}
-        onVoltar={() => {
-          setPage('negocio')
-        }}
+        onVoltar={() => setPage('negocio')}
       />
     )
   }
@@ -338,9 +315,7 @@ export default function App() {
     return (
       <PersonalizacaoNegocioPage
         empresaId={empresaId}
-        onVoltar={() => {
-          setPage('negocio')
-        }}
+        onVoltar={() => setPage('negocio')}
       />
     )
   }
@@ -349,18 +324,14 @@ export default function App() {
     return (
       <PaginaPublicaNegocioPage
         empresaId={empresaId}
-        onVoltar={() => {
-          setPage('negocio')
-        }}
+        onVoltar={() => setPage('negocio')}
       />
     )
   }
 
   return (
     <InicioPage
-      onExplorar={() => {
-        console.log('Abrir Mercado Local')
-      }}
+      onExplorar={() => setPage('explorar')}
       onCadastrarNegocio={() => {
         setPage('cadastrar-negocio')
       }}
