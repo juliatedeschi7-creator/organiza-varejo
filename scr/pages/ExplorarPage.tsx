@@ -201,9 +201,9 @@ export default function ExplorarPage({
               </span>
             </div>
 
-            <div className="explorar-brand-mark">
-              <Logo />
-            </div>
+<div className="explorar-brand-mark">
+  <Logo somenteSimbolo />
+</div>
           </div>
 
           <div className="explorar-intro">
