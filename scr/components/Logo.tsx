@@ -1,17 +1,28 @@
+
 interface LogoProps {
   className?: string
+  somenteSimbolo?: boolean
 }
 
-export function Logo({ className = '' }: LogoProps) {
+export function Logo({
+  className = '',
+  somenteSimbolo = false,
+}: LogoProps) {
   return (
-    <div className={`organiza-logo ${className}`}>
+    <div
+      className={`organiza-logo ${somenteSimbolo ? 'organiza-logo--simbolo' : ''} ${className}`}
+    >
       <img
         src="/logo-organiza-transparente.png"
-        alt="Organiza"
+        alt={somenteSimbolo ? 'Organiza' : ''}
         className="organiza-logo__symbol"
       />
 
-      <span className="organiza-logo__name">Organiza</span>
+      {!somenteSimbolo && (
+        <span className="organiza-logo__name">
+          Organiza
+        </span>
+      )}
     </div>
   )
 }
