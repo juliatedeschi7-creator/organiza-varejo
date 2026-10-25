@@ -6,8 +6,12 @@ import {
   MapPin,
   RefreshCw,
   Search,
-  Store,
+  Shirt,
+  Utensils,
+  Sparkles,
+  House,
   X,
+  Store,
 } from 'lucide-react'
 
 import { supabase } from '../lib/supabase'
@@ -68,6 +72,29 @@ function obterLocalizacao(loja: Loja): string {
 
   return 'Localização não informada'
 }
+
+const categoriasVisuais = [
+  {
+    nome: 'Moda',
+    classe: 'explorar-categoria-rosa',
+    Icone: Shirt,
+  },
+  {
+    nome: 'Alimentação',
+    classe: 'explorar-categoria-verde',
+    Icone: Utensils,
+  },
+  {
+    nome: 'Beleza',
+    classe: 'explorar-categoria-azul',
+    Icone: Sparkles,
+  },
+  {
+    nome: 'Casa',
+    classe: 'explorar-categoria-amarelo',
+    Icone: House,
+  },
+]
 
 export default function ExplorarPage({
   onVoltar,
@@ -142,11 +169,8 @@ export default function ExplorarPage({
     if (!slug?.trim()) return
 
     /*
-     * Mantém a rota pública atual do App.tsx:
+     * Mantém a rota pública atual:
      * /slug-da-empresa
-     *
-     * A vitrine pública continua responsável por carregar
-     * os dados e os produtos da loja.
      */
     window.location.assign(`/${encodeURIComponent(slug.trim())}`)
   }
@@ -171,24 +195,27 @@ export default function ExplorarPage({
               </button>
             )}
 
-            <div className="explorar-brand">
-              <Logo />
+            <div className="explorar-topbar-title">
+              <span className="explorar-topbar-label">
+                Mercado Local
+              </span>
             </div>
 
-            <span className="explorar-header-label">
-              Mercado Local
-            </span>
+            <div className="explorar-brand-mark">
+              <Logo />
+            </div>
           </div>
 
           <div className="explorar-intro">
             <p className="explorar-overline">
-              DESCUBRA NEGÓCIOS
+              DESCUBRA NEGÓCIOS DA SUA REGIÃO
             </p>
 
-            <h1>Explore</h1>
+            <h1>Mercado Local</h1>
 
             <p className="explorar-description">
-              Encontre lojas e conheça os negócios da sua região.
+              Encontre lojas, conheça produtos e descubra
+              o que existe perto de você.
             </p>
           </div>
 
@@ -221,13 +248,36 @@ export default function ExplorarPage({
           </div>
         </header>
 
+        <section className="explorar-categorias-section">
+          <div className="explorar-section-heading">
+            <h2>Explore por categoria</h2>
+          </div>
+
+          <div className="explorar-categorias">
+            {categoriasVisuais.map(
+              ({ nome, classe, Icone }) => (
+                <div
+                  key={nome}
+                  className={`explorar-categoria ${classe}`}
+                >
+                  <div className="explorar-categoria-icon">
+                    <Icone size={23} strokeWidth={1.8} />
+                  </div>
+
+                  <span>{nome}</span>
+                </div>
+              ),
+            )}
+          </div>
+        </section>
+
         <section className="explorar-list-section">
           <div className="explorar-list-heading">
             <div>
               <h2>
                 {busca
                   ? 'Resultados da busca'
-                  : 'Lojas e negócios'}
+                  : 'Negócios locais'}
               </h2>
 
               {!carregando && !erro && (
@@ -312,19 +362,33 @@ export default function ExplorarPage({
             !erro &&
             lojasFiltradas.length > 0 && (
               <div className="explorar-list">
-                {lojasFiltradas.map((loja) => {
+                {lojasFiltradas.map((loja, indice) => {
                   const nome =
                     loja.nome_fantasia || 'Negócio sem nome'
 
                   const podeAbrir =
                     Boolean(loja.empresa_slug?.trim())
 
+                  const coresLogo = [
+                    'explorar-logo-rosa',
+                    'explorar-logo-verde',
+                    'explorar-logo-azul',
+                    'explorar-logo-amarelo',
+                    'explorar-logo-lilas',
+                    'explorar-logo-pessego',
+                  ]
+
+                  const classeLogo =
+                    coresLogo[indice % coresLogo.length]
+
                   return (
                     <article
                       key={`${loja.empresa_id}-${loja.filial_id ?? 'empresa'}`}
                       className="explorar-loja"
                     >
-                      <div className="explorar-loja-logo">
+                      <div
+                        className={`explorar-loja-logo ${classeLogo}`}
+                      >
                         {loja.empresa_logo_url ? (
                           <img
                             src={loja.empresa_logo_url}
@@ -332,10 +396,7 @@ export default function ExplorarPage({
                             loading="lazy"
                           />
                         ) : (
-                          <div
-                            className="explorar-logo-placeholder"
-                            aria-label="Loja sem logotipo"
-                          >
+                          <div className="explorar-logo-placeholder">
                             <Store size={25} />
                           </div>
                         )}
@@ -382,10 +443,17 @@ export default function ExplorarPage({
         </section>
 
         <footer className="explorar-footer">
-          <span>
-            <span className="explorar-footer-dot" />
-            Comércio local, mais perto de você.
-          </span>
+          <div className="explorar-footer-brand">
+            <span className="explorar-footer-line" />
+            <span className="explorar-footer-name">
+              Organiza
+            </span>
+            <span className="explorar-footer-line" />
+          </div>
+
+          <p>
+            Tecnologia para aproximar pessoas e negócios.
+          </p>
         </footer>
       </div>
     </main>
