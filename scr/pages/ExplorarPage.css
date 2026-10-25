@@ -1,12 +1,11 @@
 
 .explorar-page {
-  --explorar-fundo: #f7f8f6;
+  --explorar-fundo: #fbfbf8;
   --explorar-superficie: #ffffff;
-  --explorar-texto: #263b32;
-  --explorar-secundario: #748078;
-  --explorar-borda: #e6eae6;
+  --explorar-texto: #293b32;
+  --explorar-secundario: #78827a;
+  --explorar-borda: #e8ebe5;
   --explorar-destaque: #345b49;
-  --explorar-destaque-claro: #edf3ee;
 
   min-height: 100vh;
   background: var(--explorar-fundo);
@@ -34,82 +33,94 @@
 /* Cabeçalho */
 
 .explorar-header {
-  padding-top: 22px;
+  padding-top: 18px;
 }
 
 .explorar-topbar {
-  min-height: 46px;
+  min-height: 43px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding-bottom: 22px;
+  gap: 11px;
+  padding-bottom: 17px;
   border-bottom: 1px solid var(--explorar-borda);
 }
 
 .explorar-back {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 1px solid var(--explorar-borda);
-  border-radius: 12px;
-  background: var(--explorar-superficie);
+  border-radius: 11px;
+  background: #ffffff;
   color: var(--explorar-texto);
   cursor: pointer;
-  transition:
-    background 160ms ease,
-    border-color 160ms ease;
 }
 
 .explorar-back:hover {
-  background: var(--explorar-destaque-claro);
-  border-color: #cad8ce;
+  background: #f0f5ef;
 }
 
-.explorar-brand {
+.explorar-topbar-title {
   min-width: 0;
+  flex: 1;
+}
+
+.explorar-topbar-label {
+  color: var(--explorar-secundario);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+}
+
+.explorar-brand-mark {
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
-.explorar-brand > * {
-  max-width: 100%;
+/*
+ * A marca é intencionalmente pequena no cabeçalho.
+ * O componente Logo atual pode incluir o nome escrito.
+ * Se ele tiver uma versão somente com símbolo, use essa versão aqui.
+ */
+.explorar-brand-mark > * {
+  transform: scale(0.48);
+  transform-origin: center;
 }
 
-.explorar-header-label {
-  margin-left: auto;
-  color: var(--explorar-secundario);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
+/* Introdução */
 
 .explorar-intro {
-  padding: 27px 0 20px;
+  padding: 25px 0 19px;
 }
 
 .explorar-overline {
   margin: 0 0 7px;
-  color: var(--explorar-destaque);
+  color: #718c78;
   font-size: 10px;
   line-height: 1.5;
   font-weight: 750;
-  letter-spacing: 1.35px;
+  letter-spacing: 1.2px;
 }
 
 .explorar-intro h1 {
   margin: 0;
   color: var(--explorar-texto);
-  font-size: clamp(28px, 5vw, 36px);
-  line-height: 1.15;
-  font-weight: 700;
-  letter-spacing: -1.2px;
+  font-size: clamp(28px, 5vw, 35px);
+  line-height: 1.16;
+  font-weight: 750;
+  letter-spacing: -1.1px;
 }
 
 .explorar-description {
-  max-width: 420px;
+  max-width: 440px;
   margin: 9px 0 0;
   color: var(--explorar-secundario);
   font-size: 14px;
@@ -120,13 +131,13 @@
 
 .explorar-search {
   width: 100%;
-  min-height: 49px;
+  min-height: 48px;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 0 14px;
-  background: var(--explorar-superficie);
-  border: 1px solid var(--explorar-borda);
+  gap: 10px;
+  padding: 0 13px;
+  background: #ffffff;
+  border: 1px solid #e4e8e2;
   border-radius: 13px;
   transition:
     border-color 160ms ease,
@@ -134,20 +145,20 @@
 }
 
 .explorar-search:focus-within {
-  border-color: #9bb5a4;
-  box-shadow: 0 0 0 3px rgb(52 91 73 / 8%);
+  border-color: #b5cbb8;
+  box-shadow: 0 0 0 3px rgb(113 140 120 / 10%);
 }
 
 .explorar-search-icon {
   flex-shrink: 0;
-  color: var(--explorar-secundario);
+  color: #879189;
 }
 
 .explorar-search input {
   flex: 1;
   min-width: 0;
   width: 100%;
-  height: 47px;
+  height: 46px;
   padding: 0;
   border: 0;
   outline: 0;
@@ -158,7 +169,7 @@
 }
 
 .explorar-search input::placeholder {
-  color: #9aa39d;
+  color: #9aa39c;
   opacity: 1;
 }
 
@@ -181,14 +192,102 @@
 }
 
 .explorar-clear:hover {
-  background: var(--explorar-destaque-claro);
+  background: #f0f5ef;
 }
 
-/* Lista de lojas */
+/* Categorias */
+
+.explorar-categorias-section {
+  padding-top: 27px;
+}
+
+.explorar-section-heading {
+  margin-bottom: 12px;
+}
+
+.explorar-section-heading h2 {
+  margin: 0;
+  color: var(--explorar-texto);
+  font-size: 16px;
+  line-height: 1.45;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.explorar-categorias {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.explorar-categoria {
+  min-width: 0;
+  min-height: 91px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 5px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.explorar-categoria-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.explorar-categoria span {
+  color: #4e5e52;
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 600;
+}
+
+.explorar-categoria-rosa {
+  background: #f8e9ec;
+  border-color: #f2e0e4;
+}
+
+.explorar-categoria-rosa .explorar-categoria-icon {
+  color: #9b6877;
+}
+
+.explorar-categoria-verde {
+  background: #e8f1e8;
+  border-color: #dfeade;
+}
+
+.explorar-categoria-verde .explorar-categoria-icon {
+  color: #5e8065;
+}
+
+.explorar-categoria-azul {
+  background: #e9eef8;
+  border-color: #e0e7f4;
+}
+
+.explorar-categoria-azul .explorar-categoria-icon {
+  color: #687fa8;
+}
+
+.explorar-categoria-amarelo {
+  background: #f7f0df;
+  border-color: #f0e8d5;
+}
+
+.explorar-categoria-amarelo .explorar-categoria-icon {
+  color: #9b8552;
+}
+
+/* Lista de negócios */
 
 .explorar-list-section {
   flex: 1;
-  padding-top: 31px;
+  padding-top: 29px;
 }
 
 .explorar-list-heading {
@@ -225,32 +324,30 @@
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 13px;
+  gap: 12px;
+  padding: 12px;
   background: var(--explorar-superficie);
   border: 1px solid var(--explorar-borda);
   border-radius: 14px;
   transition:
     border-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+    box-shadow 160ms ease;
 }
 
 .explorar-loja:hover {
-  border-color: #d0dbd2;
-  box-shadow: 0 4px 16px rgb(38 59 50 / 4%);
+  border-color: #d5e0d5;
+  box-shadow: 0 3px 13px rgb(41 59 50 / 4%);
 }
 
 .explorar-loja-logo {
-  width: 61px;
-  height: 61px;
+  width: 56px;
+  height: 56px;
   flex-shrink: 0;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f1f4f0;
-  border: 1px solid #edf0ec;
+  border: 1px solid rgb(41 59 50 / 4%);
   border-radius: 12px;
 }
 
@@ -260,6 +357,31 @@
   display: block;
   object-fit: contain;
   padding: 5px;
+  background: #ffffff;
+}
+
+.explorar-logo-rosa {
+  background: #f8e9ec;
+}
+
+.explorar-logo-verde {
+  background: #e8f1e8;
+}
+
+.explorar-logo-azul {
+  background: #e9eef8;
+}
+
+.explorar-logo-amarelo {
+  background: #f7f0df;
+}
+
+.explorar-logo-lilas {
+  background: #eee8f6;
+}
+
+.explorar-logo-pessego {
+  background: #f7e9df;
 }
 
 .explorar-logo-placeholder {
@@ -268,8 +390,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--explorar-destaque-claro);
-  color: var(--explorar-destaque);
+  color: #637d69;
 }
 
 .explorar-loja-info {
@@ -308,22 +429,22 @@
 .explorar-branch {
   margin: 4px 0 0;
   overflow-wrap: anywhere;
-  color: #909991;
+  color: #929b93;
   font-size: 11px;
   line-height: 1.45;
 }
 
 .explorar-open {
-  width: 36px;
-  height: 36px;
+  width: 35px;
+  height: 35px;
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #e2e9e3;
+  border: 1px solid #e1eae1;
   border-radius: 11px;
-  background: var(--explorar-destaque-claro);
-  color: var(--explorar-destaque);
+  background: #edf4ed;
+  color: #52745a;
   cursor: pointer;
   transition:
     background 160ms ease,
@@ -332,8 +453,8 @@
 }
 
 .explorar-open:hover:not(:disabled) {
-  border-color: var(--explorar-destaque);
-  background: var(--explorar-destaque);
+  border-color: #77977d;
+  background: #77977d;
   color: #ffffff;
 }
 
@@ -342,7 +463,7 @@
   cursor: not-allowed;
 }
 
-/* Carregamento, erro e lista vazia */
+/* Estados */
 
 .explorar-message {
   min-height: 200px;
@@ -377,21 +498,17 @@
   align-items: center;
   justify-content: center;
   border-radius: 15px;
-  background: var(--explorar-destaque-claro);
-  color: var(--explorar-destaque);
+  background: #e8f1e8;
+  color: #5e8065;
 }
 
 .explorar-spinner {
   width: 27px;
   height: 27px;
-  border: 2px solid #dfe7e0;
-  border-top-color: var(--explorar-destaque);
+  border: 2px solid #e1e9e0;
+  border-top-color: #78967b;
   border-radius: 50%;
   animation: explorar-girar 750ms linear infinite;
-}
-
-.explorar-message .explorar-spinner + p {
-  margin-top: 13px;
 }
 
 .explorar-retry {
@@ -405,7 +522,7 @@
   border: 1px solid #dce5dd;
   border-radius: 10px;
   background: #ffffff;
-  color: var(--explorar-destaque);
+  color: #52745a;
   font-family: inherit;
   font-size: 13px;
   font-weight: 600;
@@ -413,7 +530,7 @@
 }
 
 .explorar-retry:hover {
-  background: var(--explorar-destaque-claro);
+  background: #edf4ed;
 }
 
 .explorar-text-button {
@@ -421,7 +538,7 @@
   padding: 7px 10px;
   border: 0;
   background: transparent;
-  color: var(--explorar-destaque);
+  color: #52745a;
   font-family: inherit;
   font-size: 13px;
   font-weight: 650;
@@ -432,32 +549,47 @@
 
 .explorar-footer {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 30px 0 24px;
-}
-
-.explorar-footer > span {
-  display: inline-flex;
-  align-items: center;
   gap: 8px;
-  color: #8a948c;
-  font-size: 11px;
-  text-align: center;
+  padding: 35px 0 25px;
 }
 
-.explorar-footer-dot {
-  width: 6px;
-  height: 6px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: #71917a;
+.explorar-footer-brand {
+  width: 100%;
+  max-width: 230px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+}
+
+.explorar-footer-line {
+  height: 1px;
+  flex: 1;
+  background: #e5e9e3;
+}
+
+.explorar-footer-name {
+  color: #65756a;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.explorar-footer p {
+  margin: 0;
+  color: #9aa29b;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: center;
 }
 
 /* Acessibilidade */
 
 .explorar-page button:focus-visible {
-  outline: 3px solid rgb(52 91 73 / 28%);
+  outline: 3px solid rgb(113 140 120 / 30%);
   outline-offset: 3px;
 }
 
@@ -476,21 +608,21 @@
   }
 
   .explorar-header {
-    padding-top: 16px;
+    padding-top: 15px;
   }
 
   .explorar-topbar {
     gap: 9px;
-    padding-bottom: 18px;
+    padding-bottom: 15px;
   }
 
-  .explorar-header-label {
-    font-size: 11px;
+  .explorar-topbar-label {
+    font-size: 12px;
   }
 
   .explorar-intro {
-    padding-top: 24px;
-    padding-bottom: 18px;
+    padding-top: 23px;
+    padding-bottom: 17px;
   }
 
   .explorar-intro h1 {
@@ -499,6 +631,24 @@
 
   .explorar-description {
     font-size: 13px;
+  }
+
+  .explorar-categorias-section {
+    padding-top: 24px;
+  }
+
+  .explorar-categorias {
+    gap: 8px;
+  }
+
+  .explorar-categoria {
+    min-height: 83px;
+    padding: 9px 3px;
+    border-radius: 12px;
+  }
+
+  .explorar-categoria span {
+    font-size: 10px;
   }
 
   .explorar-list-section {
@@ -510,14 +660,14 @@
   }
 
   .explorar-loja {
-    gap: 11px;
+    gap: 10px;
     padding: 11px;
     border-radius: 13px;
   }
 
   .explorar-loja-logo {
-    width: 54px;
-    height: 54px;
+    width: 53px;
+    height: 53px;
     border-radius: 11px;
   }
 
@@ -532,6 +682,11 @@
   .explorar-open {
     width: 33px;
     height: 33px;
+  }
+
+  .explorar-footer {
+    padding-top: 30px;
+    padding-bottom: 22px;
   }
 }
 
