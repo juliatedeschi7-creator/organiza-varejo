@@ -700,3 +700,32 @@
     scroll-behavior: auto !important;
   }
 }
+
+
+/* Ajuste fino do cabeçalho no Mercado Local */
+
+.explorar-intro {
+  padding-top: 20px;
+  padding-bottom: 8px;
+}
+
+.explorar-description {
+  margin-top: 7px;
+  line-height: 1.5;
+}
+
+.explorar-search {
+  margin-top: 0;
+}
+
+@media (max-width: 480px) {
+  .explorar-intro {
+    padding-top: 20px;
+    padding-bottom: 8px;
+  }
+
+  .explorar-description {
+    margin-top: 7px;
+    line-height: 1.5;
+  }
+}
