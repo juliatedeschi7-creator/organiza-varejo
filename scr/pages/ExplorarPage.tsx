@@ -4,19 +4,17 @@ import {
   ArrowLeft,
   ArrowUpRight,
   MapPin,
-  RefreshCw,
   Search,
+  Store,
   Shirt,
   Utensils,
   Sparkles,
   House,
   X,
-  Store,
 } from 'lucide-react'
 
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
-import './ExplorarPage.css'
 
 interface Loja {
   empresa_id: string
@@ -26,7 +24,8 @@ interface Loja {
   empresa_banner_url: string | null
   empresa_cidade: string | null
   empresa_estado: string | null
-  filial_id: string | null
+
+  filial_id: string
   filial_nome: string | null
   filial_codigo: string | null
   filial_telefone: string | null
@@ -46,52 +45,25 @@ interface ExplorarPageProps {
   onVoltar?: () => void
 }
 
-function normalizarTexto(
-  texto: string | null | undefined,
-): string {
-  return (texto ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR')
-    .trim()
-}
-
-function obterLocalizacao(loja: Loja): string {
-  const cidade =
-    loja.filial_cidade || loja.empresa_cidade
-
-  const estado =
-    loja.filial_estado || loja.empresa_estado
-
-  if (cidade && estado) {
-    return `${cidade}, ${estado}`
-  }
-
-  if (cidade) return cidade
-  if (estado) return estado
-
-  return 'Localização não informada'
-}
-
-const categoriasVisuais = [
+const categorias = [
   {
     nome: 'Moda',
-    classe: 'explorar-categoria-rosa',
+    classe: 'rosa',
     Icone: Shirt,
   },
   {
     nome: 'Alimentação',
-    classe: 'explorar-categoria-verde',
+    classe: 'verde',
     Icone: Utensils,
   },
   {
     nome: 'Beleza',
-    classe: 'explorar-categoria-azul',
+    classe: 'azul',
     Icone: Sparkles,
   },
   {
     nome: 'Casa',
-    classe: 'explorar-categoria-amarelo',
+    classe: 'amarelo',
     Icone: House,
   },
 ]
@@ -103,7 +75,6 @@ export default function ExplorarPage({
   const [busca, setBusca] = useState('')
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
-  const [tentativa, setTentativa] = useState(0)
 
   useEffect(() => {
     let ativo = true
@@ -115,9 +86,7 @@ export default function ExplorarPage({
       const { data, error } = await supabase
         .from('catalogo_publico_loja')
         .select('*')
-        .order('nome_fantasia', {
-          ascending: true,
-        })
+        .order('nome_fantasia', { ascending: true })
 
       if (!ativo) return
 
@@ -127,10 +96,10 @@ export default function ExplorarPage({
           error,
         )
 
-        setLojas([])
         setErro(
-          'Não conseguimos carregar as lojas agora. Tente novamente.',
+          'Não foi possível carregar os negócios neste momento.',
         )
+        setLojas([])
         setCarregando(false)
         return
       }
@@ -144,39 +113,74 @@ export default function ExplorarPage({
     return () => {
       ativo = false
     }
-  }, [tentativa])
+  }, [])
 
   const lojasFiltradas = useMemo(() => {
-    const termo = normalizarTexto(busca)
+    const termo = busca.trim().toLowerCase()
 
     if (!termo) return lojas
 
     return lojas.filter((loja) => {
-      const campos = [
-        loja.nome_fantasia,
-        loja.filial_nome,
-        loja.filial_cidade || loja.empresa_cidade,
-        loja.filial_estado || loja.empresa_estado,
-      ]
+      const nome =
+        loja.nome_fantasia?.toLowerCase() ?? ''
 
-      return campos.some((campo) =>
-        normalizarTexto(campo).includes(termo),
+      const cidade =
+        loja.filial_cidade?.toLowerCase() ??
+        loja.empresa_cidade?.toLowerCase() ??
+        ''
+
+      const estado =
+        loja.filial_estado?.toLowerCase() ??
+        loja.empresa_estado?.toLowerCase() ??
+        ''
+
+      const filial =
+        loja.filial_nome?.toLowerCase() ?? ''
+
+      return (
+        nome.includes(termo) ||
+        cidade.includes(termo) ||
+        estado.includes(termo) ||
+        filial.includes(termo)
       )
     })
   }, [lojas, busca])
 
   function abrirLoja(slug: string | null) {
-    if (!slug?.trim()) return
+    if (!slug) return
 
-    /*
-     * Mantém a rota pública atual:
-     * /slug-da-empresa
-     */
-    window.location.assign(`/${encodeURIComponent(slug.trim())}`)
+    // A rota pública atual recebe o slug da empresa
+    // diretamente na raiz do endereço.
+    window.location.assign(`/${encodeURIComponent(slug)}`)
+  }
+
+  function obterLocalizacao(loja: Loja) {
+    const cidade =
+      loja.filial_cidade || loja.empresa_cidade
+
+    const estado =
+      loja.filial_estado || loja.empresa_estado
+
+    if (cidade && estado) {
+      return `${cidade}, ${estado}`
+    }
+
+    if (cidade) return cidade
+    if (estado) return estado
+
+    return 'Localização não informada'
+  }
+
+  function obterNomeLoja(loja: Loja) {
+    return loja.nome_fantasia || 'Negócio local'
+  }
+
+  function obterNomeFilial(loja: Loja) {
+    return loja.filial_nome || 'Unidade principal'
   }
 
   function tentarNovamente() {
-    setTentativa((atual) => atual + 1)
+    window.location.reload()
   }
 
   return (
@@ -184,69 +188,64 @@ export default function ExplorarPage({
       <div className="explorar-container">
         <header className="explorar-header">
           <div className="explorar-topbar">
-            {onVoltar && (
-              <button
-                type="button"
-                className="explorar-back"
-                onClick={onVoltar}
-                aria-label="Voltar ao início"
-              >
-                <ArrowLeft size={20} />
-              </button>
-            )}
+            <button
+              type="button"
+              className="explorar-back"
+              onClick={onVoltar}
+              aria-label="Voltar"
+            >
+              <ArrowLeft size={21} strokeWidth={2} />
+            </button>
 
             <div className="explorar-topbar-title">
-              <span className="explorar-topbar-label">
+              <h1 className="explorar-topbar-label">
                 Mercado Local
-              </span>
+              </h1>
             </div>
 
-<div className="explorar-brand-mark">
-  <Logo somenteSimbolo />
-</div>
-          </div>
-
-          <div className="explorar-intro">
-            <p className="explorar-overline">
-              DESCUBRA NEGÓCIOS DA SUA REGIÃO
-            </p>
-
-            <h1>Mercado Local</h1>
-
-            <p className="explorar-description">
-              Encontre lojas, conheça produtos e descubra
-              o que existe perto de você.
-            </p>
-          </div>
-
-          <div className="explorar-search">
-            <Search
-              size={19}
-              aria-hidden="true"
-              className="explorar-search-icon"
-            />
-
-            <input
-              type="search"
-              value={busca}
-              onChange={(event) => setBusca(event.target.value)}
-              placeholder="Buscar loja ou cidade"
-              aria-label="Buscar lojas por nome ou localização"
-              autoComplete="off"
-            />
-
-            {busca && (
-              <button
-                type="button"
-                className="explorar-clear"
-                onClick={() => setBusca('')}
-                aria-label="Limpar pesquisa"
-              >
-                <X size={17} />
-              </button>
-            )}
+            <div className="explorar-brand-mark">
+              <Logo somenteSimbolo />
+            </div>
           </div>
         </header>
+
+        <section className="explorar-intro">
+          <p className="explorar-overline">
+            DESCUBRA NEGÓCIOS DA SUA REGIÃO
+          </p>
+
+          <p className="explorar-description">
+            Encontre lojas, conheça produtos e descubra o que
+            existe perto de você.
+          </p>
+        </section>
+
+        <div className="explorar-search">
+          <Search
+            className="explorar-search-icon"
+            size={21}
+            strokeWidth={2}
+          />
+
+          <input
+            type="search"
+            value={busca}
+            onChange={(event) => setBusca(event.target.value)}
+            placeholder="Buscar loja ou cidade"
+            aria-label="Buscar loja ou cidade"
+          />
+
+          {busca && (
+            <button
+              type="button"
+              className="explorar-clear"
+              onClick={() => setBusca('')}
+              aria-label="Limpar busca"
+            >
+              <X size={18} />
+            </button>
+          )}
+        </div>
 
         <section className="explorar-categorias-section">
           <div className="explorar-section-heading">
@@ -254,14 +253,14 @@ export default function ExplorarPage({
           </div>
 
           <div className="explorar-categorias">
-            {categoriasVisuais.map(
+            {categorias.map(
               ({ nome, classe, Icone }) => (
                 <div
                   key={nome}
-                  className={`explorar-categoria ${classe}`}
+                  className={`explorar-categoria explorar-categoria-${classe}`}
                 >
                   <div className="explorar-categoria-icon">
-                    <Icone size={23} strokeWidth={1.8} />
+                    <Icone size={25} strokeWidth={1.8} />
                   </div>
 
                   <span>{nome}</span>
@@ -274,38 +273,32 @@ export default function ExplorarPage({
         <section className="explorar-list-section">
           <div className="explorar-list-heading">
             <div>
-              <h2>
-                {busca
-                  ? 'Resultados da busca'
-                  : 'Negócios locais'}
-              </h2>
+              <h2>Negócios locais</h2>
 
-              {!carregando && !erro && (
-                <p className="explorar-result-count">
-                  {lojasFiltradas.length}{' '}
-                  {lojasFiltradas.length === 1
-                    ? 'negócio encontrado'
-                    : 'negócios encontrados'}
-                </p>
-              )}
+              <p className="explorar-result-count">
+                {carregando
+                  ? 'Buscando negócios...'
+                  : `${lojasFiltradas.length} ${
+                      lojasFiltradas.length === 1
+                        ? 'negócio encontrado'
+                        : 'negócios encontrados'
+                    }`}
+              </p>
             </div>
           </div>
 
-          {carregando && (
-            <div
-              className="explorar-message"
-              role="status"
-              aria-live="polite"
-            >
-              <span className="explorar-spinner" />
-              <p>Buscando negócios...</p>
+          {carregando ? (
+            <div className="explorar-message">
+              <div className="explorar-spinner" />
+              <h3>Encontrando negócios</h3>
+              <p>
+                Estamos preparando as lojas para você.
+              </p>
             </div>
-          )}
-
-          {!carregando && erro && (
-            <div className="explorar-message explorar-error">
+          ) : erro ? (
+            <div className="explorar-message">
               <div className="explorar-message-icon">
-                <RefreshCw size={22} />
+                <Store size={24} />
               </div>
 
               <h3>Não foi possível carregar</h3>
@@ -316,143 +309,128 @@ export default function ExplorarPage({
                 className="explorar-retry"
                 onClick={tentarNovamente}
               >
-                <RefreshCw size={16} />
                 Tentar novamente
               </button>
             </div>
-          )}
+          ) : lojasFiltradas.length === 0 ? (
+            <div className="explorar-message">
+              <div className="explorar-message-icon">
+                <Search size={24} />
+              </div>
 
-          {!carregando &&
-            !erro &&
-            lojasFiltradas.length === 0 && (
-              <div className="explorar-message">
-                <div className="explorar-message-icon">
-                  {busca ? (
-                    <Search size={23} />
-                  ) : (
-                    <Store size={23} />
-                  )}
-                </div>
+              <h3>
+                {busca
+                  ? 'Nenhum negócio encontrado'
+                  : 'Ainda não há negócios por aqui'}
+              </h3>
 
-                <h3>
-                  {busca
-                    ? 'Nenhum resultado encontrado'
-                    : 'Ainda não há lojas disponíveis'}
-                </h3>
+              <p>
+                {busca
+                  ? 'Tente buscar por outro nome, cidade ou unidade.'
+                  : 'Novos negócios poderão aparecer nesta área.'}
+              </p>
 
-                <p>
-                  {busca
-                    ? 'Experimente outro nome ou pesquise por uma cidade.'
-                    : 'Quando houver negócios publicados, eles aparecerão aqui.'}
-                </p>
+              {busca && (
+                <button
+                  type="button"
+                  className="explorar-text-button"
+                  onClick={() => setBusca('')}
+                >
+                  Limpar busca
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="explorar-list">
+              {lojasFiltradas.map((loja, index) => {
+                const cores = [
+                  'rosa',
+                  'verde',
+                  'azul',
+                  'amarelo',
+                  'lilas',
+                  'pessego',
+                ]
 
-                {busca && (
-                  <button
-                    type="button"
-                    className="explorar-text-button"
-                    onClick={() => setBusca('')}
+                const classeCor =
+                  cores[index % cores.length]
+
+                return (
+                  <article
+                    key={`${loja.empresa_id}-${loja.filial_id}`}
+                    className="explorar-loja"
                   >
-                    Limpar busca
-                  </button>
-                )}
-              </div>
-            )}
-
-          {!carregando &&
-            !erro &&
-            lojasFiltradas.length > 0 && (
-              <div className="explorar-list">
-                {lojasFiltradas.map((loja, indice) => {
-                  const nome =
-                    loja.nome_fantasia || 'Negócio sem nome'
-
-                  const podeAbrir =
-                    Boolean(loja.empresa_slug?.trim())
-
-                  const coresLogo = [
-                    'explorar-logo-rosa',
-                    'explorar-logo-verde',
-                    'explorar-logo-azul',
-                    'explorar-logo-amarelo',
-                    'explorar-logo-lilas',
-                    'explorar-logo-pessego',
-                  ]
-
-                  const classeLogo =
-                    coresLogo[indice % coresLogo.length]
-
-                  return (
-                    <article
-                      key={`${loja.empresa_id}-${loja.filial_id ?? 'empresa'}`}
-                      className="explorar-loja"
+                    <div
+                      className={`explorar-loja-logo explorar-logo-${classeCor}`}
                     >
-                      <div
-                        className={`explorar-loja-logo ${classeLogo}`}
-                      >
-                        {loja.empresa_logo_url ? (
-                          <img
-                            src={loja.empresa_logo_url}
-                            alt={`Logo de ${nome}`}
-                            loading="lazy"
+                      {loja.empresa_logo_url ? (
+                        <img
+                          src={loja.empresa_logo_url}
+                          alt={`Logo de ${obterNomeLoja(loja)}`}
+                        />
+                      ) : (
+                        <div className="explorar-logo-placeholder">
+                          <Store
+                            size={27}
+                            strokeWidth={1.8}
                           />
-                        ) : (
-                          <div className="explorar-logo-placeholder">
-                            <Store size={25} />
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+                    </div>
 
-                      <div className="explorar-loja-info">
-                        <h3>{nome}</h3>
+                    <div className="explorar-loja-info">
+                      <h3>{obterNomeLoja(loja)}</h3>
 
-                        <p className="explorar-location">
-                          <MapPin size={14} />
-                          <span>
-                            {obterLocalizacao(loja)}
-                          </span>
-                        </p>
+                      <p className="explorar-location">
+                        <MapPin
+                          size={15}
+                          strokeWidth={1.8}
+                        />
 
-                        {loja.filial_nome && (
-                          <p className="explorar-branch">
-                            {loja.filial_nome}
-                          </p>
-                        )}
-                      </div>
+                        <span>
+                          {obterLocalizacao(loja)}
+                        </span>
+                      </p>
 
-                      <button
-                        type="button"
-                        className="explorar-open"
-                        onClick={() =>
-                          abrirLoja(loja.empresa_slug)
-                        }
-                        disabled={!podeAbrir}
-                        aria-label={`Ver loja ${nome}`}
-                        title={
-                          podeAbrir
-                            ? `Ver ${nome}`
-                            : 'Esta loja ainda não tem um endereço público disponível'
-                        }
-                      >
-                        <ArrowUpRight size={20} />
-                      </button>
-                    </article>
-                  )
-                })}
-              </div>
-            )}
+                      <p className="explorar-branch">
+                        {obterNomeFilial(loja)}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="explorar-open"
+                      onClick={() =>
+                        abrirLoja(loja.empresa_slug)
+                      }
+                      disabled={!loja.empresa_slug}
+                      aria-label={`Ver loja ${obterNomeLoja(loja)}`}
+                    >
+                      <ArrowUpRight
+                        size={22}
+                        strokeWidth={2}
+                      />
+                    </button>
+                  </article>
+                )
+              })}
+            </div>
+          )}
         </section>
 
         <footer className="explorar-footer">
           <div className="explorar-footer-brand">
             <span className="explorar-footer-line" />
+
             <span className="explorar-footer-name">
               Organiza
             </span>
+
             <span className="explorar-footer-line" />
           </div>
 
           <p>
-            Tecnologia para aproximar pessoas e negócios.
+            Tecnologia para quem empreende.
           </p>
         </footer>
       </div>
