@@ -729,100 +729,157 @@ async function carregar() {
     }
   }
 
-  async function enviarLogo(arquivo: File) {
-    if (!vitrine) return
+async function enviarLogo(arquivo: File) {
+  if (!vitrine) return
 
-    try {
-      setEnviandoLogo(true)
-      setMensagem('')
+  try {
+    setEnviandoLogo(true)
+    setMensagem('')
 
-      const extensao =
-        arquivo.name.split('.').pop()?.toLowerCase() ||
-        'jpg'
-
-      const caminho = `${empresaId}/logo.${extensao}`
-
-      const { error: uploadError } =
-        await supabase.storage
-          .from('empresa-imagens')
-          .upload(caminho, arquivo, {
-            upsert: true,
-            contentType: arquivo.type,
-          })
-
-      if (uploadError) {
-        throw uploadError
-      }
-
-      const { data: publicUrlData } =
-        supabase.storage
-          .from('empresa-imagens')
-          .getPublicUrl(caminho)
-
-      const url = `${publicUrlData.publicUrl}?v=${Date.now()}`
-
-      const { error: empresaError } =
-        await supabase
-          .from('empresas')
-          .update({
-            logo_url: url,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', empresaId)
-
-      if (empresaError) {
-        throw empresaError
-      }
-
-      const { error: vitrineError } =
-        await supabase
-          .from('vitrines')
-          .update({
-            logo_url: url,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', vitrine.id)
-
-      if (vitrineError) {
-        throw vitrineError
-      }
-
-      setEmpresa((atual) =>
-        atual
-          ? {
-              ...atual,
-              logo_url: url,
-            }
-          : atual,
-      )
-
-      setVitrine((atual) =>
-        atual
-          ? {
-              ...atual,
-              logo_url: url,
-            }
-          : atual,
-      )
-
-      setMensagem('Logo atualizado com sucesso.')
-
-      window.setTimeout(() => {
-        setMensagem('')
-      }, 3000)
-    } catch (error) {
-      console.error(
-        'Erro ao enviar logo:',
-        error,
-      )
-
-      setMensagem(
-        'Não foi possível enviar o logo.',
-      )
-    } finally {
-      setEnviandoLogo(false)
+    if (!arquivo) {
+      throw new Error('Nenhum arquivo foi selecionado.')
     }
+
+    const tiposPermitidos = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ]
+
+    if (
+      arquivo.type &&
+      !tiposPermitidos.includes(arquivo.type)
+    ) {
+      throw new Error(
+        'Formato inválido. Selecione uma imagem JPG, PNG ou WEBP.',
+      )
+    }
+
+    const extensaoOriginal =
+      arquivo.name.split('.').pop()?.toLowerCase()
+
+    const extensoesPermitidas = [
+      'jpg',
+      'jpeg',
+      'png',
+      'webp',
+    ]
+
+    const extensao = extensoesPermitidas.includes(
+      extensaoOriginal || '',
+    )
+      ? extensaoOriginal!
+      : arquivo.type === 'image/png'
+        ? 'png'
+        : arquivo.type === 'image/webp'
+          ? 'webp'
+          : 'jpg'
+
+    const caminho = `${empresaId}/logo.${extensao}`
+
+    console.log('Iniciando envio do logo:', {
+      nome: arquivo.name,
+      tipo: arquivo.type,
+      tamanho: arquivo.size,
+      caminho,
+    })
+
+    const { error: uploadError } =
+      await supabase.storage
+        .from('empresa-imagens')
+        .upload(caminho, arquivo, {
+          upsert: true,
+          contentType:
+            arquivo.type || 'image/jpeg',
+        })
+
+    if (uploadError) {
+      console.error('Erro no Storage:', uploadError)
+      throw new Error(
+        `Falha no armazenamento: ${uploadError.message}`,
+      )
+    }
+
+    const { data: publicUrlData } =
+      supabase.storage
+        .from('empresa-imagens')
+        .getPublicUrl(caminho)
+
+    const url = `${publicUrlData.publicUrl}?v=${Date.now()}`
+
+    const { error: empresaError } =
+      await supabase
+        .from('empresas')
+        .update({
+          logo_url: url,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', empresaId)
+
+    if (empresaError) {
+      console.error(
+        'Erro ao atualizar empresa:',
+        empresaError,
+      )
+      throw new Error(
+        `Falha ao atualizar empresa: ${empresaError.message}`,
+      )
+    }
+
+    const { error: vitrineError } =
+      await supabase
+        .from('vitrines')
+        .update({
+          logo_url: url,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', vitrine.id)
+
+    if (vitrineError) {
+      console.error(
+        'Erro ao atualizar vitrine:',
+        vitrineError,
+      )
+      throw new Error(
+        `Falha ao atualizar vitrine: ${vitrineError.message}`,
+      )
+    }
+
+    setEmpresa((atual) =>
+      atual
+        ? {
+            ...atual,
+            logo_url: url,
+          }
+        : atual,
+    )
+
+    setVitrine((atual) =>
+      atual
+        ? {
+            ...atual,
+            logo_url: url,
+          }
+        : atual,
+    )
+
+    setMensagem('Logo atualizado com sucesso.')
+
+    window.setTimeout(() => {
+      setMensagem('')
+    }, 3000)
+  } catch (error) {
+    console.error('Erro ao enviar logo:', error)
+
+    setMensagem(
+      error instanceof Error
+        ? error.message
+        : 'Não foi possível enviar o logo.',
+    )
+  } finally {
+    setEnviandoLogo(false)
   }
+}
 
   async function enviarCapa(arquivo: File) {
     if (!vitrine) return
