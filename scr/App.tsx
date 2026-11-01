@@ -15,6 +15,7 @@ import EditarEmpresaPage from './pages/EditarEmpresaPage'
 import EditarEnderecoPage from './pages/EditarEnderecoPage'
 import PersonalizacaoNegocioPage from './pages/PersonalizacaoNegocioPage'
 import VitrinePublicaSlugPage from './pages/VitrinePublicaSlugPage'
+import RedefinirSenhaPage from './pages/RedefinirSenhaPage'
 
 type Page =
   | 'login'
@@ -29,20 +30,17 @@ type Page =
   | 'editar-empresa'
   | 'editar-endereco'
   | 'personalizacao'
+  | 'redefinir-senha'
 
 function obterSlugDaUrl() {
   const caminho = window.location.pathname
     .replace(/^\/+|\/+$/g, '')
 
-  if (!caminho) {
-    return null
-  }
+  if (!caminho) return null
 
   const partes = caminho.split('/')
 
-  if (partes.length !== 1) {
-    return null
-  }
+  if (partes.length !== 1) return null
 
   try {
     const slug = decodeURIComponent(partes[0])
@@ -56,7 +54,17 @@ function obterSlugDaUrl() {
 }
 
 export default function App() {
-  const slugPublico = obterSlugDaUrl()
+  const caminhoAtual = window.location.pathname
+    .replace(/^\/+|\/+$/g, '')
+    .toLowerCase()
+
+  const ehPaginaRedefinirSenha =
+    caminhoAtual === 'redefinir-senha'
+
+  const slugPublico = ehPaginaRedefinirSenha
+    ? null
+    : obterSlugDaUrl()
+
   const ehVitrinePublica = Boolean(slugPublico)
 
   const [page, setPage] = useState<Page>('login')
@@ -67,14 +75,8 @@ export default function App() {
     let montado = true
 
     async function iniciar() {
-      /*
-       * A vitrine pública não depende de autenticação.
-       */
       if (ehVitrinePublica) {
-        if (montado) {
-          setCarregando(false)
-        }
-
+        if (montado) setCarregando(false)
         return
       }
 
@@ -82,7 +84,11 @@ export default function App() {
         data: { session },
       } = await supabase.auth.getSession()
 
-      if (!montado) {
+      if (!montado) return
+
+      if (ehPaginaRedefinirSenha) {
+        setPage('redefinir-senha')
+        setCarregando(false)
         return
       }
 
@@ -109,8 +115,19 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!montado) {
+      (event, session) => {
+        if (!montado) return
+
+        if (event === 'PASSWORD_RECOVERY') {
+          setPage('redefinir-senha')
+          setCarregando(false)
+          return
+        }
+
+        // Enquanto estiver na recuperação, não redirecionar
+        // o usuário para o início ou para o login.
+        if (ehPaginaRedefinirSenha) {
+          setPage('redefinir-senha')
           return
         }
 
@@ -129,16 +146,10 @@ export default function App() {
       montado = false
       subscription.unsubscribe()
     }
-  }, [ehVitrinePublica])
+  }, [ehVitrinePublica, ehPaginaRedefinirSenha])
 
-  /*
-   * Vitrine pública:
-   * pode ser aberta diretamente pelo slug da empresa.
-   */
   if (ehVitrinePublica && slugPublico) {
-    return (
-      <VitrinePublicaSlugPage slug={slugPublico} />
-    )
+    return <VitrinePublicaSlugPage slug={slugPublico} />
   }
 
   if (carregando) {
@@ -154,6 +165,22 @@ export default function App() {
       >
         <p>Carregando...</p>
       </main>
+    )
+  }
+
+  if (page === 'redefinir-senha') {
+    return (
+      <RedefinirSenhaPage
+        onVoltarLogin={() => {
+          window.history.replaceState(null, '', '/')
+          setPage('login')
+        }}
+        onSenhaRedefinida={() => {
+          window.history.replaceState(null, '', '/')
+          setEmpresaId(null)
+          setPage('inicio')
+        }}
+      />
     )
   }
 
@@ -181,12 +208,8 @@ export default function App() {
     return (
       <InicioPage
         onExplorar={() => setPage('explorar')}
-        onCadastrarNegocio={() => {
-          setPage('cadastrar-negocio')
-        }}
-        onAgoraNao={() => {
-          setPage('inicio')
-        }}
+        onCadastrarNegocio={() => setPage('cadastrar-negocio')}
+        onAgoraNao={() => setPage('inicio')}
         onAbrirEmpresa={(id) => {
           setEmpresaId(id)
           setPage('negocio')
@@ -195,10 +218,6 @@ export default function App() {
     )
   }
 
-  /*
-   * Mercado Local:
-   * a listagem usa catalogo_publico_loja.
-   */
   if (page === 'explorar') {
     return (
       <ExplorarPage
@@ -222,19 +241,12 @@ export default function App() {
     )
   }
 
-  /*
-   * As telas seguintes dependem de uma empresa selecionada.
-   */
   if (!empresaId) {
     return (
       <InicioPage
         onExplorar={() => setPage('explorar')}
-        onCadastrarNegocio={() => {
-          setPage('cadastrar-negocio')
-        }}
-        onAgoraNao={() => {
-          setPage('inicio')
-        }}
+        onCadastrarNegocio={() => setPage('cadastrar-negocio')}
+        onAgoraNao={() => setPage('inicio')}
         onAbrirEmpresa={(id) => {
           setEmpresaId(id)
           setPage('negocio')
@@ -249,28 +261,15 @@ export default function App() {
         empresaId={empresaId}
         onSair={async () => {
           await supabase.auth.signOut()
-
           setEmpresaId(null)
           setPage('login')
         }}
-        onAbrirVitrine={() => {
-          setPage('pagina-publica')
-        }}
-        onAbrirProdutos={() => {
-          setPage('produtos')
-        }}
-        onAbrirCategorias={() => {
-          setPage('categorias')
-        }}
-        onAbrirEditarEmpresa={() => {
-          setPage('editar-empresa')
-        }}
-        onAbrirEditarEndereco={() => {
-          setPage('editar-endereco')
-        }}
-        onAbrirPersonalizacao={() => {
-          setPage('personalizacao')
-        }}
+        onAbrirVitrine={() => setPage('pagina-publica')}
+        onAbrirProdutos={() => setPage('produtos')}
+        onAbrirCategorias={() => setPage('categorias')}
+        onAbrirEditarEmpresa={() => setPage('editar-empresa')}
+        onAbrirEditarEndereco={() => setPage('editar-endereco')}
+        onAbrirPersonalizacao={() => setPage('personalizacao')}
       />
     )
   }
@@ -332,12 +331,8 @@ export default function App() {
   return (
     <InicioPage
       onExplorar={() => setPage('explorar')}
-      onCadastrarNegocio={() => {
-        setPage('cadastrar-negocio')
-      }}
-      onAgoraNao={() => {
-        setPage('inicio')
-      }}
+      onCadastrarNegocio={() => setPage('cadastrar-negocio')}
+      onAgoraNao={() => setPage('inicio')}
       onAbrirEmpresa={(id) => {
         setEmpresaId(id)
         setPage('negocio')
