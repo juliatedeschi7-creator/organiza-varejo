@@ -71,13 +71,15 @@ export default function LoginPage({
 
     setEnviandoRecuperacao(false)
 
-    if (error) {
-      console.error('Erro na recuperação de senha:', error)
-      setErro(
-        'Não foi possível enviar as instruções. Tente novamente.',
-      )
-      return
-    }
+if (error) {
+  console.error('Erro na recuperação de senha:', error)
+
+  setErro(
+    `Erro do Supabase: ${error.message}`,
+  )
+
+  return
+}
 
     setMensagem(
       'Se esse e-mail estiver cadastrado, enviaremos as instruções para redefinir sua senha.',
