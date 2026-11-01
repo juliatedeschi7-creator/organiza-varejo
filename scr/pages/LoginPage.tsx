@@ -1,3 +1,4 @@
+
 import { FormEvent, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
@@ -14,12 +15,15 @@ export default function LoginPage({
   const [email, setEmail] = useState('')
   const [senha, setSenha] = useState('')
   const [mostrarSenha, setMostrarSenha] = useState(false)
-  const [lembrar, setLembrar] = useState(true)
   const [carregando, setCarregando] = useState(false)
+  const [enviandoRecuperacao, setEnviandoRecuperacao] =
+    useState(false)
   const [erro, setErro] = useState('')
   const [mensagem, setMensagem] = useState('')
 
-  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+  async function handleLogin(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault()
 
     setErro('')
@@ -43,14 +47,7 @@ export default function LoginPage({
       return
     }
 
-    /*
-     * O Supabase autenticou o usuário com sucesso.
-     *
-     * Neste momento, o App assume o controle da navegação
-     * e leva o usuário para a tela inicial do Organiza.
-     */
     setMensagem('Login realizado. Preparando seu acesso...')
-
     onLoginSuccess()
   }
 
@@ -63,6 +60,8 @@ export default function LoginPage({
       return
     }
 
+    setEnviandoRecuperacao(true)
+
     const { error } = await supabase.auth.resetPasswordForEmail(
       email.trim(),
       {
@@ -70,9 +69,12 @@ export default function LoginPage({
       },
     )
 
+    setEnviandoRecuperacao(false)
+
     if (error) {
+      console.error('Erro na recuperação de senha:', error)
       setErro(
-        'Não foi possível iniciar a recuperação da senha. Tente novamente.',
+        'Não foi possível enviar as instruções. Tente novamente.',
       )
       return
     }
@@ -111,14 +113,17 @@ export default function LoginPage({
 
             <input
               id="email"
-              name="email"
+              name="username"
               type="email"
-              autoComplete="email"
+              autoComplete="username"
               inputMode="email"
               placeholder="seu@email.com"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              disabled={carregando}
+              onChange={(event) =>
+                setEmail(event.target.value)
+              }
+              disabled={carregando || enviandoRecuperacao}
+              required
             />
           </div>
 
@@ -130,22 +135,27 @@ export default function LoginPage({
                 type="button"
                 className="text-button"
                 onClick={handleEsqueciSenha}
-                disabled={carregando}
+                disabled={carregando || enviandoRecuperacao}
               >
-                Esqueci minha senha
+                {enviandoRecuperacao
+                  ? 'Enviando...'
+                  : 'Esqueci minha senha'}
               </button>
             </div>
 
             <div className="password-field">
               <input
                 id="senha"
-                name="senha"
+                name="password"
                 type={mostrarSenha ? 'text' : 'password'}
                 autoComplete="current-password"
                 placeholder="Digite sua senha"
                 value={senha}
-                onChange={(event) => setSenha(event.target.value)}
-                disabled={carregando}
+                onChange={(event) =>
+                  setSenha(event.target.value)
+                }
+                disabled={carregando || enviandoRecuperacao}
+                required
               />
 
               <button
@@ -165,19 +175,6 @@ export default function LoginPage({
               </button>
             </div>
           </div>
-
-          <label className="remember-option">
-            <input
-              type="checkbox"
-              checked={lembrar}
-              onChange={(event) =>
-                setLembrar(event.target.checked)
-              }
-              disabled={carregando}
-            />
-
-            <span>Continuar conectado</span>
-          </label>
 
           {erro && (
             <div
@@ -200,7 +197,7 @@ export default function LoginPage({
           <button
             type="submit"
             className="primary-button"
-            disabled={carregando}
+            disabled={carregando || enviandoRecuperacao}
           >
             {carregando ? 'Entrando...' : 'Entrar'}
           </button>
@@ -217,7 +214,7 @@ export default function LoginPage({
             type="button"
             className="secondary-button"
             onClick={onCriarConta}
-            disabled={carregando}
+            disabled={carregando || enviandoRecuperacao}
           >
             Criar conta
           </button>
