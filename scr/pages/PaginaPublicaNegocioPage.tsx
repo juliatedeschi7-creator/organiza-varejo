@@ -5,6 +5,7 @@ import {
   MapPin,
   Search,
   ShoppingBag,
+  Store,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import ProdutoDetalhePage from './ProdutoDetalhePage'
@@ -79,6 +80,16 @@ interface VitrineAparencia {
   tema: string | null
 }
 
+interface VitrineSecao {
+  id: string
+  vitrine_id: string
+  tipo: string
+  titulo: string | null
+  ordem: number
+  visivel: boolean
+  configuracoes: Record<string, unknown> | null
+}
+
 interface Categoria {
   categoria_id: string
   empresa_id: string
@@ -145,6 +156,14 @@ const aparenciaPadrao: VitrineAparencia = {
   tema: 'claro',
 }
 
+const ordemPadrao = [
+  'banner',
+  'categorias',
+  'destaques',
+  'produtos',
+  'onde_estamos',
+]
+
 export default function PaginaPublicaNegocioPage({
   slug,
   empresaId,
@@ -155,6 +174,7 @@ export default function PaginaPublicaNegocioPage({
   const [aparencia, setAparencia] =
     useState<VitrineAparencia>(aparenciaPadrao)
 
+  const [secoes, setSecoes] = useState<VitrineSecao[]>([])
   const [filiais, setFiliais] = useState<Filial[]>([])
   const [filialSelecionadaId, setFilialSelecionadaId] =
     useState<string | null>(null)
@@ -186,25 +206,28 @@ export default function PaginaPublicaNegocioPage({
       setEmpresa(null)
       setVitrine(null)
       setAparencia(aparenciaPadrao)
+      setSecoes([])
       setFiliais([])
       setCategorias([])
       setProdutos([])
       setFotos([])
 
-      let slugResolvido = typeof slug === 'string' ? slug.trim().toLowerCase() : ''
+      let slugResolvido =
+        typeof slug === 'string' ? slug.trim().toLowerCase() : ''
 
-      // A navegação interna do aplicativo ainda abre esta página por empresaId.
-      // Nesse caso, resolvemos o slug com a sessão autenticada e depois usamos
-      // a mesma função pública controlada para carregar os dados da vitrine.
       if (!slugResolvido && empresaId) {
-        const { data: empresaSlug, error: empresaSlugError } = await supabase
-          .from('empresas')
-          .select('slug')
-          .eq('id', empresaId)
-          .maybeSingle()
+        const { data: empresaSlug, error: empresaSlugError } =
+          await supabase
+            .from('empresas')
+            .select('slug')
+            .eq('id', empresaId)
+            .maybeSingle()
 
         if (empresaSlugError) throw empresaSlugError
-        slugResolvido = String(empresaSlug?.slug || '').trim().toLowerCase()
+
+        slugResolvido = String(empresaSlug?.slug || '')
+          .trim()
+          .toLowerCase()
       }
 
       if (!slugResolvido) {
@@ -218,6 +241,7 @@ export default function PaginaPublicaNegocioPage({
       )
 
       if (dadosError) throw dadosError
+
       if (!dados?.empresa || !dados?.vitrine) {
         setErro('Negócio não encontrado ou vitrine indisponível.')
         return
@@ -241,7 +265,25 @@ export default function PaginaPublicaNegocioPage({
       setFilialSelecionadaId(filiaisData[0]?.id || null)
       setCategorias(categoriasData)
 
+      etapa = 'organização das seções'
+
+      const { data: secoesData, error: secoesError } = await supabase
+        .from('vitrine_secoes')
+        .select('id, vitrine_id, tipo, titulo, ordem, visivel, configuracoes')
+        .eq('vitrine_id', vitrineData.id)
+        .order('ordem', { ascending: true })
+
+      if (secoesError) {
+        console.warn(
+          'Não foi possível carregar as seções personalizadas. Será usada a organização padrão.',
+          secoesError,
+        )
+      } else {
+        setSecoes((secoesData || []) as VitrineSecao[])
+      }
+
       etapa = 'produtos da vitrine'
+
       const { data: resposta, error: produtosError } = await supabase.rpc(
         'vitrine_produtos_publicos',
         { p_slug: vitrineData.slug },
@@ -282,6 +324,7 @@ export default function PaginaPublicaNegocioPage({
       }
 
       const produtosPublicos = resultado.produtos ?? []
+
       const produtosAtivos: Produto[] = produtosPublicos.map((produto) => ({
         id: produto.id,
         empresa_id: empresaData.id,
@@ -304,43 +347,82 @@ export default function PaginaPublicaNegocioPage({
         vitrine_produto_id: produto.vitrine_produto_id,
         imagem_principal_url: produto.imagem_principal_url,
       }))
+
       setProdutos(produtosAtivos)
 
-      const fotosPublicas: FotoProduto[] = produtosPublicos.flatMap((produto) =>
-        (produto.fotos ?? []).map((foto) => ({
-          foto_id: foto.id,
-          produto_id: produto.id,
-          variacao_id: null,
-          url: foto.url,
-          ordem: foto.ordem,
-          principal: foto.principal,
-          alt_text: foto.alt_text,
-        })),
+      const fotosPublicas: FotoProduto[] = produtosPublicos.flatMap(
+        (produto) =>
+          (produto.fotos ?? []).map((foto) => ({
+            foto_id: foto.id,
+            produto_id: produto.id,
+            variacao_id: null,
+            url: foto.url,
+            ordem: foto.ordem,
+            principal: foto.principal,
+            alt_text: foto.alt_text,
+          })),
       )
+
       setFotos(fotosPublicas)
     } catch (error) {
       console.error('Erro ao carregar página pública:', { etapa, error })
-      const detalhe = error && typeof error === 'object'
-        ? error as { message?: string; details?: string; hint?: string; code?: string }
-        : {}
+
+      const detalhe =
+        error && typeof error === 'object'
+          ? (error as {
+              message?: string
+              details?: string
+              hint?: string
+              code?: string
+            })
+          : {}
+
       const mensagem = [
         detalhe.message,
         detalhe.details,
         detalhe.hint,
         detalhe.code ? `Código: ${detalhe.code}` : '',
-      ].filter(Boolean).join(' | ')
-      setErro(`Erro na etapa "${etapa}". ${mensagem || 'Não foi possível carregar os dados públicos.'}`)
+      ]
+        .filter(Boolean)
+        .join(' | ')
+
+      setErro(
+        `Erro na etapa "${etapa}". ${
+          mensagem || 'Não foi possível carregar os dados públicos.'
+        }`,
+      )
     } finally {
       setCarregando(false)
     }
   }
 
+  const secoesOrdenadas = useMemo(() => {
+    if (secoes.length === 0) {
+      return ordemPadrao.map((tipo, index) => ({
+        id: tipo,
+        tipo,
+        ordem: index + 1,
+        visivel: true,
+      }))
+    }
+
+    return secoes
+      .filter((secao) => secao.visivel)
+      .sort((a, b) => a.ordem - b.ordem)
+  }, [secoes])
+
+  function secaoVisivel(tipo: string) {
+    return secoesOrdenadas.some((secao) => secao.tipo === tipo)
+  }
+
+  function ordemSecao(tipo: string) {
+    const secao = secoesOrdenadas.find((item) => item.tipo === tipo)
+    return secao?.ordem ?? ordemPadrao.indexOf(tipo) + 1
+  }
+
   const filialSelecionada = useMemo(
     () =>
-      filiais.find(
-        (filial) =>
-          filial.id === filialSelecionadaId,
-      ) || null,
+      filiais.find((filial) => filial.id === filialSelecionadaId) || null,
     [filiais, filialSelecionadaId],
   )
 
@@ -351,118 +433,75 @@ export default function PaginaPublicaNegocioPage({
         .replace(/[\u0300-\u036f]/g, '')
         .toLocaleLowerCase('pt-BR')
         .trim()
+
     const termo = normalizarBusca(busca)
 
     return produtos.filter((produto) => {
       const termosAlternativos = Array.isArray(produto.termos_busca)
         ? produto.termos_busca
         : []
+
       const correspondeBusca =
         !termo ||
         normalizarBusca(produto.nome).includes(termo) ||
         normalizarBusca(produto.descricao || '').includes(termo) ||
         normalizarBusca(produto.descricao_curta || '').includes(termo) ||
         termosAlternativos.some((item) =>
-          normalizarBusca(item).includes(termo)
+          normalizarBusca(item).includes(termo),
         )
 
       const correspondeCategoria =
         !categoriaSelecionada ||
         produto.categoria_id === categoriaSelecionada
 
-      return (
-        correspondeBusca &&
-        correspondeCategoria
-      )
+      return correspondeBusca && correspondeCategoria
     })
-  }, [
-    produtos,
-    busca,
-    categoriaSelecionada,
-  ])
+  }, [produtos, busca, categoriaSelecionada])
 
   const produtosDestaque = useMemo(
-    () =>
-      produtos.filter(
-        (produto) =>
-          produto.destaque_vitrine,
-      ),
+    () => produtos.filter((produto) => produto.destaque_vitrine),
     [produtos],
   )
 
   const tema = useMemo<PropsTema>(() => {
-    const principal =
-      vitrine?.cor_principal || '#159447'
-
-    const secundaria =
-      vitrine?.cor_secundaria || '#EAF7EF'
-
-    const destaque =
-      vitrine?.cor_destaque || '#0F6F38'
-
-    const escuro =
-      aparencia.tema === 'escuro'
+    const principal = vitrine?.cor_principal || '#159447'
+    const secundaria = vitrine?.cor_secundaria || '#EAF7EF'
+    const destaque = vitrine?.cor_destaque || '#0F6F38'
+    const escuro = aparencia.tema === 'escuro'
 
     return {
       principal,
       secundaria,
       destaque,
-      fundo: escuro ? '#121714' : '#F7F9F7',
+      fundo: escuro ? '#121714' : '#F6F8F6',
       texto: escuro ? '#F5F8F6' : '#202622',
-      textoSecundario: escuro
-        ? '#AEB9B2'
-        : '#66706A',
+      textoSecundario: escuro ? '#AEB9B2' : '#66706A',
       card: escuro ? '#1B211E' : '#FFFFFF',
     }
-  }, [
-    vitrine,
-    aparencia.tema,
-  ])
+  }, [vitrine, aparencia.tema])
 
-  const raio =
-    aparencia.raio_bordas ?? 12
-
-  const fonte =
-    aparencia.fonte ||
-    'Inter, system-ui, sans-serif'
+  const raio = aparencia.raio_bordas ?? 12
+  const fonte = aparencia.fonte || 'Inter, system-ui, sans-serif'
 
   const estiloBotao =
-    aparencia.estilo_botoes === 'quadrado'
-      ? 4
-      : raio
+    aparencia.estilo_botoes === 'quadrado' ? 5 : Math.min(raio, 24)
 
-  const estiloCard =
-    aparencia.estilo_cards === 'destacado'
-      ? {
-          border: `1px solid ${tema.principal}33`,
-          boxShadow:
-            '0 5px 18px rgba(0,0,0,0.08)',
-        }
-      : {
-          border: `1px solid ${
-            aparencia.tema === 'escuro'
-              ? '#2B342F'
-              : '#E3EAE5'
-          }`,
-          boxShadow:
-            '0 2px 9px rgba(0,0,0,0.035)',
-        }
+  const estiloCard = {
+    border: `1px solid ${
+      aparencia.tema === 'escuro' ? '#2B342F' : '#E3EAE5'
+    }`,
+    boxShadow:
+      aparencia.estilo_cards === 'destacado'
+        ? '0 7px 24px rgba(0,0,0,0.09)'
+        : '0 2px 10px rgba(0,0,0,0.035)',
+  }
 
   function fotoPrincipal(produtoId: string) {
     const fotosProduto = fotos
-      .filter(
-        (foto) =>
-          foto.produto_id === produtoId,
-      )
+      .filter((foto) => foto.produto_id === produtoId)
       .sort((a, b) => {
-        if (a.principal && !b.principal) {
-          return -1
-        }
-
-        if (!a.principal && b.principal) {
-          return 1
-        }
-
+        if (a.principal && !b.principal) return -1
+        if (!a.principal && b.principal) return 1
         return a.ordem - b.ordem
       })
 
@@ -478,10 +517,7 @@ export default function PaginaPublicaNegocioPage({
 
   function renderProduto(produto: Produto) {
     const foto = fotoPrincipal(produto.id)
-
-    const preco =
-      produto.preco_promocional ??
-      produto.preco
+    const preco = produto.preco_promocional ?? produto.preco
 
     const possuiPromocao =
       produto.preco !== null &&
@@ -492,9 +528,7 @@ export default function PaginaPublicaNegocioPage({
       <button
         key={produto.id}
         type="button"
-        onClick={() =>
-          setProdutoSelecionado(produto)
-        }
+        onClick={() => setProdutoSelecionado(produto)}
         style={{
           ...styles.productCard,
           ...estiloCard,
@@ -506,21 +540,16 @@ export default function PaginaPublicaNegocioPage({
         <div
           style={{
             ...styles.productImage,
-            borderRadius: Math.max(
-              0,
-              raio - 3,
-            ),
+            borderRadius: Math.max(0, raio - 3),
             background: tema.secundaria,
           }}
         >
           {foto ? (
             <img
               src={foto.url}
-              alt={
-                foto.alt_text ||
-                produto.nome
-              }
+              alt={foto.alt_text || produto.nome}
               style={styles.productImageImg}
+              loading="lazy"
             />
           ) : (
             <div
@@ -529,18 +558,14 @@ export default function PaginaPublicaNegocioPage({
                 color: tema.textoSecundario,
               }}
             >
-              Sem foto
+              <ShoppingBag size={27} strokeWidth={1.5} />
+              <span>Foto não disponível</span>
             </div>
           )}
         </div>
 
         <div style={styles.productInfo}>
-          <h3
-            style={{
-              ...styles.productName,
-              color: tema.texto,
-            }}
-          >
+          <h3 style={{ ...styles.productName, color: tema.texto }}>
             {produto.nome}
           </h3>
 
@@ -568,12 +593,7 @@ export default function PaginaPublicaNegocioPage({
                 </span>
               )}
 
-              <strong
-                style={{
-                  ...styles.price,
-                  color: tema.principal,
-                }}
-              >
+              <strong style={{ ...styles.price, color: tema.principal }}>
                 {formatarPreco(preco)}
               </strong>
             </div>
@@ -589,52 +609,30 @@ export default function PaginaPublicaNegocioPage({
         produtoId={produtoSelecionado.id}
         empresaId={empresa?.id || ''}
         vitrineSlug={vitrine?.slug || ''}
-        onVoltar={() =>
-          setProdutoSelecionado(null)
-        }
+        onVoltar={() => setProdutoSelecionado(null)}
       />
     )
   }
 
   if (carregando) {
     return (
-      <div
-        style={{
-          ...styles.page,
-          background: '#F7F9F7',
-        }}
-      >
-        <div style={styles.loading}>
-          Carregando vitrine...
-        </div>
+      <div style={{ ...styles.page, background: '#F6F8F6' }}>
+        <div style={styles.loading}>Carregando vitrine...</div>
       </div>
     )
   }
 
   if (erro) {
     return (
-      <div
-        style={{
-          ...styles.page,
-          background: '#F7F9F7',
-        }}
-      >
+      <div style={{ ...styles.page, background: '#F6F8F6' }}>
         <div style={styles.errorContainer}>
-          <h1 style={styles.errorTitle}>
-            Não foi possível abrir a vitrine
-          </h1>
-
-          <p style={styles.errorText}>
-            {erro}
-          </p>
+          <h1 style={styles.errorTitle}>Não foi possível abrir a vitrine</h1>
+          <p style={styles.errorText}>{erro}</p>
 
           {onVoltar && (
             <button
               onClick={onVoltar}
-              style={{
-                ...styles.backButton,
-                background: '#FFFFFF',
-              }}
+              style={{ ...styles.backButton, background: '#FFFFFF' }}
             >
               <ArrowLeft size={18} />
               Voltar
@@ -646,38 +644,25 @@ export default function PaginaPublicaNegocioPage({
   }
 
   const nomeLoja =
-    vitrine?.nome_exibicao ||
-    empresa?.nome_fantasia ||
-    'Meu negócio'
+    vitrine?.nome_exibicao || empresa?.nome_fantasia || 'Meu negócio'
 
-  const logo =
-    vitrine?.logo_url ||
-    empresa?.logo_url
+  const logo = vitrine?.logo_url || empresa?.logo_url
+  const banner = vitrine?.banner_url || empresa?.banner_url
+  const descricao = vitrine?.descricao || empresa?.descricao_publica
 
-  const banner =
-    vitrine?.banner_url ||
-    empresa?.banner_url
+  const cidade = filialSelecionada?.cidade || empresa?.cidade
+  const estado = filialSelecionada?.estado || empresa?.estado
 
-  const descricao =
-    vitrine?.descricao ||
-    empresa?.descricao_publica
+  const mostrarNome = aparencia.mostrar_nome_loja
+  const mostrarLogo = aparencia.mostrar_logo
 
-  const mostrarNome =
-    aparencia.mostrar_nome_loja
+  const mensagemBoasVindas = vitrine?.mensagem_boas_vindas
 
-  const mostrarLogo =
-    aparencia.mostrar_logo
-
-  const mensagemBoasVindas =
-    vitrine?.mensagem_boas_vindas
-
-  const cidade =
-    filialSelecionada?.cidade ||
-    empresa?.cidade
-
-  const estado =
-    filialSelecionada?.estado ||
-    empresa?.estado
+  const mostrarDestaques =
+    secaoVisivel('destaques') &&
+    produtosDestaque.length > 0 &&
+    !busca &&
+    !categoriaSelecionada
 
   return (
     <div
@@ -686,6 +671,7 @@ export default function PaginaPublicaNegocioPage({
         background: tema.fundo,
         color: tema.texto,
         fontFamily: fonte,
+        paddingBottom: vitrine?.permitir_pedidos ? 88 : 0,
       }}
     >
       <header
@@ -693,14 +679,12 @@ export default function PaginaPublicaNegocioPage({
           ...styles.topBar,
           background: tema.card,
           borderBottom: `1px solid ${
-            aparencia.tema === 'escuro'
-              ? '#2B342F'
-              : '#E3EAE5'
+            aparencia.tema === 'escuro' ? '#2B342F' : '#E3EAE5'
           }`,
         }}
       >
         <div style={styles.topBarInner}>
-          {onVoltar && (
+          {onVoltar ? (
             <button
               onClick={onVoltar}
               style={{
@@ -712,32 +696,36 @@ export default function PaginaPublicaNegocioPage({
               <ArrowLeft size={18} />
               Voltar
             </button>
+          ) : (
+            <span style={styles.headerSpacer} />
           )}
 
-<img
-  src="/logo-organiza-transparente.png"
-  alt="Organiza"
-  style={styles.organizaLogo}
-/>
+          <img
+            src="/logo-organiza-transparente.png"
+            alt="Organiza"
+            style={styles.organizaLogo}
+          />
         </div>
       </header>
 
-      {banner && (
-        <div
-          style={{
-            ...styles.banner,
-            borderRadius: 0,
-          }}
-        >
-          <img
-            src={banner}
-            alt=""
-            style={styles.bannerImage}
-          />
-        </div>
-      )}
-
       <main style={styles.main}>
+        {secaoVisivel('banner') && banner && (
+          <section
+            style={{
+              ...styles.banner,
+              borderRadius: raio,
+              order: ordemSecao('banner'),
+            }}
+          >
+            <img src={banner} alt="" style={styles.bannerImage} />
+            {mensagemBoasVindas && (
+              <div style={styles.bannerOverlay}>
+                <span>{mensagemBoasVindas}</span>
+              </div>
+            )}
+          </section>
+        )}
+
         <section
           style={{
             ...styles.businessHeader,
@@ -754,21 +742,12 @@ export default function PaginaPublicaNegocioPage({
                 background: tema.secundaria,
               }}
             >
-              <img
-                src={logo}
-                alt={`Logo de ${nomeLoja}`}
-                style={styles.logo}
-              />
+              <img src={logo} alt={`Logo de ${nomeLoja}`} style={styles.logo} />
             </div>
           )}
 
           {mostrarNome && (
-            <h1
-              style={{
-                ...styles.businessName,
-                color: tema.texto,
-              }}
-            >
+            <h1 style={{ ...styles.businessName, color: tema.texto }}>
               {nomeLoja}
             </h1>
           )}
@@ -784,7 +763,7 @@ export default function PaginaPublicaNegocioPage({
             </p>
           )}
 
-          {mensagemBoasVindas && (
+          {mensagemBoasVindas && !banner && (
             <div
               style={{
                 ...styles.welcome,
@@ -800,52 +779,31 @@ export default function PaginaPublicaNegocioPage({
 
         {filiais.length > 1 && (
           <section style={styles.branchSection}>
-            <label
-              style={{
-                ...styles.fieldLabel,
-                color: tema.texto,
-              }}
-            >
+            <label style={{ ...styles.fieldLabel, color: tema.texto }}>
               Escolha a unidade
             </label>
 
             <div style={styles.selectWrapper}>
               <select
-                value={
-                  filialSelecionadaId || ''
-                }
-                onChange={(e) =>
-                  setFilialSelecionadaId(
-                    e.target.value,
-                  )
-                }
+                value={filialSelecionadaId || ''}
+                onChange={(e) => setFilialSelecionadaId(e.target.value)}
                 style={{
                   ...styles.select,
                   background: tema.card,
                   color: tema.texto,
                   borderColor:
-                    aparencia.tema === 'escuro'
-                      ? '#38423C'
-                      : '#DCE5DF',
+                    aparencia.tema === 'escuro' ? '#38423C' : '#DCE5DF',
                   borderRadius: estiloBotao,
                 }}
               >
                 {filiais.map((filial) => (
-                  <option
-                    key={filial.id}
-                    value={filial.id}
-                  >
-                    {filial.nome ||
-                      filial.codigo ||
-                      'Unidade'}
+                  <option key={filial.id} value={filial.id}>
+                    {filial.nome || filial.codigo || 'Unidade'}
                   </option>
                 ))}
               </select>
 
-              <ChevronDown
-                size={18}
-                style={styles.selectIcon}
-              />
+              <ChevronDown size={18} style={styles.selectIcon} />
             </div>
           </section>
         )}
@@ -856,59 +814,49 @@ export default function PaginaPublicaNegocioPage({
               ...styles.searchBox,
               background: tema.card,
               borderColor:
-                aparencia.tema === 'escuro'
-                  ? '#38423C'
-                  : '#DCE5DF',
+                aparencia.tema === 'escuro' ? '#38423C' : '#DCE5DF',
               borderRadius: estiloBotao,
             }}
           >
-            <Search
-              size={19}
-              color={tema.textoSecundario}
-            />
+            <Search size={19} color={tema.textoSecundario} />
 
             <input
               value={busca}
-              onChange={(e) =>
-                setBusca(e.target.value)
-              }
-              placeholder="Buscar produtos"
-              style={{
-                ...styles.searchInput,
-                color: tema.texto,
-              }}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="O que você está procurando?"
+              style={{ ...styles.searchInput, color: tema.texto }}
             />
           </div>
         </section>
 
-        {categorias.length > 0 && (
+        {secaoVisivel('categorias') && categorias.length > 0 && (
           <section style={styles.categoriesSection}>
-            <div
-              style={styles.categoryScroll}
-            >
+            <div style={styles.categoryHeading}>
+              <h2 style={{ ...styles.sectionTitle, color: tema.texto }}>
+                Categorias
+              </h2>
+              <span style={{ color: tema.textoSecundario }}>
+                Explore a vitrine
+              </span>
+            </div>
+
+            <div style={styles.categoryScroll}>
               <button
                 type="button"
-                onClick={() =>
-                  setCategoriaSelecionada(null)
-                }
+                onClick={() => setCategoriaSelecionada(null)}
                 style={{
                   ...styles.categoryButton,
                   borderRadius: estiloBotao,
-                  background:
-                    !categoriaSelecionada
-                      ? tema.principal
-                      : tema.card,
-                  color:
-                    !categoriaSelecionada
-                      ? '#FFFFFF'
-                      : tema.texto,
-                  borderColor:
-                    !categoriaSelecionada
-                      ? tema.principal
-                      : '#DCE5DF',
+                  background: !categoriaSelecionada
+                    ? tema.principal
+                    : tema.card,
+                  color: !categoriaSelecionada ? '#FFFFFF' : tema.texto,
+                  borderColor: !categoriaSelecionada
+                    ? tema.principal
+                    : '#DCE5DF',
                 }}
               >
-                Todos
+                Todas
               </button>
 
               {categorias.map((categoria) => (
@@ -916,26 +864,21 @@ export default function PaginaPublicaNegocioPage({
                   key={categoria.categoria_id}
                   type="button"
                   onClick={() =>
-                    setCategoriaSelecionada(
-                      categoria.categoria_id,
-                    )
+                    setCategoriaSelecionada(categoria.categoria_id)
                   }
                   style={{
                     ...styles.categoryButton,
                     borderRadius: estiloBotao,
                     background:
-                      categoriaSelecionada ===
-                      categoria.categoria_id
+                      categoriaSelecionada === categoria.categoria_id
                         ? tema.principal
                         : tema.card,
                     color:
-                      categoriaSelecionada ===
-                      categoria.categoria_id
+                      categoriaSelecionada === categoria.categoria_id
                         ? '#FFFFFF'
                         : tema.texto,
                     borderColor:
-                      categoriaSelecionada ===
-                      categoria.categoria_id
+                      categoriaSelecionada === categoria.categoria_id
                         ? tema.principal
                         : '#DCE5DF',
                   }}
@@ -947,40 +890,29 @@ export default function PaginaPublicaNegocioPage({
           </section>
         )}
 
-        {aparencia.layout_inicio !== 'inicio' &&
-          produtosDestaque.length > 0 &&
-          !busca &&
-          !categoriaSelecionada && (
-            <section style={styles.section}>
-              <div style={styles.sectionHeader}>
-                <div>
-                  <h2
-                    style={{
-                      ...styles.sectionTitle,
-                      color: tema.texto,
-                    }}
-                  >
-                    Destaques
-                  </h2>
-
-                  <p
-                    style={{
-                      ...styles.sectionSubtitle,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    Produtos escolhidos pelo negócio
-                  </p>
-                </div>
+        {mostrarDestaques && (
+          <section style={styles.section}>
+            <div style={styles.sectionHeader}>
+              <div>
+                <h2 style={{ ...styles.sectionTitle, color: tema.texto }}>
+                  Destaques
+                </h2>
+                <p
+                  style={{
+                    ...styles.sectionSubtitle,
+                    color: tema.textoSecundario,
+                  }}
+                >
+                  Produtos escolhidos pelo negócio
+                </p>
               </div>
+            </div>
 
-              <div style={styles.productGrid}>
-                {produtosDestaque.map(
-                  renderProduto,
-                )}
-              </div>
-            </section>
-          )}
+            <div style={styles.productGrid}>
+              {produtosDestaque.map(renderProduto)}
+            </div>
+          </section>
+        )}
 
         {aparencia.layout_inicio === 'inicio' &&
           (descricao || mensagemBoasVindas) && (
@@ -993,12 +925,7 @@ export default function PaginaPublicaNegocioPage({
                   borderRadius: raio,
                 }}
               >
-                <h2
-                  style={{
-                    ...styles.aboutTitle,
-                    color: tema.texto,
-                  }}
-                >
+                <h2 style={{ ...styles.aboutTitle, color: tema.texto }}>
                   Sobre o negócio
                 </h2>
 
@@ -1027,141 +954,164 @@ export default function PaginaPublicaNegocioPage({
             </section>
           )}
 
-        <section style={styles.section}>
-          <div style={styles.sectionHeader}>
-            <div>
-              <h2
-                style={{
-                  ...styles.sectionTitle,
-                  color: tema.texto,
-                }}
-              >
-                Produtos
-              </h2>
-
-              <p
-                style={{
-                  ...styles.sectionSubtitle,
-                  color: tema.textoSecundario,
-                }}
-              >
-                {produtosFiltrados.length}{' '}
-                {produtosFiltrados.length === 1
-                  ? 'produto'
-                  : 'produtos'}
-              </p>
-            </div>
-          </div>
-
-          {produtosFiltrados.length > 0 ? (
-            <div style={styles.productGrid}>
-              {produtosFiltrados.map(
-                renderProduto,
-              )}
-            </div>
-          ) : (
-            <div
-              style={{
-                ...styles.emptyProducts,
-                background: tema.card,
-                borderRadius: raio,
-                color: tema.textoSecundario,
-              }}
-            >
-              Nenhum produto encontrado.
-            </div>
-          )}
-        </section>
-
-        {(filialSelecionada ||
-          cidade ||
-          estado) && (
+        {secaoVisivel('produtos') && (
           <section style={styles.section}>
-            <div
-              style={{
-                ...styles.locationCard,
-                ...estiloCard,
-                background: tema.card,
-                borderRadius: raio,
-              }}
-            >
-              <div
-                style={{
-                  ...styles.locationIcon,
-                  background: tema.secundaria,
-                  color: tema.principal,
-                }}
-              >
-                <MapPin size={22} />
-              </div>
-
+            <div style={styles.sectionHeader}>
               <div>
-                <h2
-                  style={{
-                    ...styles.locationTitle,
-                    color: tema.texto,
-                  }}
-                >
-                  Onde estamos
+                <h2 style={{ ...styles.sectionTitle, color: tema.texto }}>
+                  {busca || categoriaSelecionada ? 'Resultados' : 'Produtos'}
                 </h2>
 
-                {filialSelecionada?.nome && (
-                  <strong
-                    style={{
-                      ...styles.locationLine,
-                      color: tema.texto,
-                    }}
-                  >
-                    {filialSelecionada.nome}
-                  </strong>
-                )}
-
-                {filialSelecionada?.logradouro && (
-                  <span
-                    style={{
-                      ...styles.locationLine,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    {filialSelecionada.logradouro}
-                    {filialSelecionada.numero
-                      ? `, ${filialSelecionada.numero}`
-                      : ''}
-                    {filialSelecionada.complemento
-                      ? ` - ${filialSelecionada.complemento}`
-                      : ''}
-                  </span>
-                )}
-
-                {filialSelecionada?.bairro && (
-                  <span
-                    style={{
-                      ...styles.locationLine,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    {filialSelecionada.bairro}
-                  </span>
-                )}
-
-                {(cidade || estado) && (
-                  <span
-                    style={{
-                      ...styles.locationLine,
-                      color: tema.textoSecundario,
-                    }}
-                  >
-                    {cidade}
-                    {cidade && estado
-                      ? ' - '
-                      : ''}
-                    {estado}
-                  </span>
-                )}
+                <p
+                  style={{
+                    ...styles.sectionSubtitle,
+                    color: tema.textoSecundario,
+                  }}
+                >
+                  {produtosFiltrados.length}{' '}
+                  {produtosFiltrados.length === 1 ? 'produto' : 'produtos'}
+                </p>
               </div>
             </div>
+
+            {produtosFiltrados.length > 0 ? (
+              <div style={styles.productGrid}>
+                {produtosFiltrados.map(renderProduto)}
+              </div>
+            ) : (
+              <div
+                style={{
+                  ...styles.emptyProducts,
+                  background: tema.card,
+                  borderRadius: raio,
+                  color: tema.textoSecundario,
+                  ...estiloCard,
+                }}
+              >
+                <div
+                  style={{
+                    ...styles.emptyIcon,
+                    background: tema.secundaria,
+                    color: tema.principal,
+                  }}
+                >
+                  <Search size={25} />
+                </div>
+
+                <strong style={{ color: tema.texto }}>
+                  {busca || categoriaSelecionada
+                    ? 'Não encontramos esse produto'
+                    : 'Esta vitrine ainda está sendo preparada'}
+                </strong>
+
+                <span>
+                  {busca || categoriaSelecionada
+                    ? 'Experimente mudar sua busca ou escolher outra categoria.'
+                    : 'Em breve, novos produtos estarão disponíveis por aqui.'}
+                </span>
+
+                {(busca || categoriaSelecionada) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusca('')
+                      setCategoriaSelecionada(null)
+                    }}
+                    style={{
+                      ...styles.clearFiltersButton,
+                      background: tema.principal,
+                      borderRadius: estiloBotao,
+                    }}
+                  >
+                    Limpar filtros
+                  </button>
+                )}
+              </div>
+            )}
           </section>
         )}
+
+        {secaoVisivel('onde_estamos') &&
+          (filialSelecionada || cidade || estado) && (
+            <section style={styles.section}>
+              <div
+                style={{
+                  ...styles.locationCard,
+                  ...estiloCard,
+                  background: tema.card,
+                  borderRadius: raio,
+                }}
+              >
+                <div
+                  style={{
+                    ...styles.locationIcon,
+                    background: tema.secundaria,
+                    color: tema.principal,
+                  }}
+                >
+                  <MapPin size={22} />
+                </div>
+
+                <div>
+                  <h2 style={{ ...styles.locationTitle, color: tema.texto }}>
+                    Onde estamos
+                  </h2>
+
+                  {filialSelecionada?.nome && (
+                    <strong
+                      style={{
+                        ...styles.locationLine,
+                        color: tema.texto,
+                      }}
+                    >
+                      {filialSelecionada.nome}
+                    </strong>
+                  )}
+
+                  {filialSelecionada?.logradouro && (
+                    <span
+                      style={{
+                        ...styles.locationLine,
+                        color: tema.textoSecundario,
+                      }}
+                    >
+                      {filialSelecionada.logradouro}
+                      {filialSelecionada.numero
+                        ? `, ${filialSelecionada.numero}`
+                        : ''}
+                      {filialSelecionada.complemento
+                        ? ` - ${filialSelecionada.complemento}`
+                        : ''}
+                    </span>
+                  )}
+
+                  {filialSelecionada?.bairro && (
+                    <span
+                      style={{
+                        ...styles.locationLine,
+                        color: tema.textoSecundario,
+                      }}
+                    >
+                      {filialSelecionada.bairro}
+                    </span>
+                  )}
+
+                  {(cidade || estado) && (
+                    <span
+                      style={{
+                        ...styles.locationLine,
+                        color: tema.textoSecundario,
+                      }}
+                    >
+                      {cidade}
+                      {cidade && estado ? ' - ' : ''}
+                      {estado}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
       </main>
 
       {vitrine?.permitir_pedidos && (
@@ -1170,17 +1120,15 @@ export default function PaginaPublicaNegocioPage({
             ...styles.bottomOrderBar,
             background: tema.card,
             borderTop: `1px solid ${
-              aparencia.tema === 'escuro'
-                ? '#2B342F'
-                : '#E3EAE5'
+              aparencia.tema === 'escuro' ? '#2B342F' : '#E3EAE5'
             }`,
           }}
         >
           <button
             type="button"
             onClick={() => {
-              console.log(
-                'Abrir carrinho/pedido',
+              console.warn(
+                'O carrinho ainda precisa ser conectado ao fluxo de pedidos existente.',
               )
             }}
             style={{
@@ -1200,15 +1148,11 @@ export default function PaginaPublicaNegocioPage({
           ...styles.footer,
           background: tema.card,
           borderTop: `1px solid ${
-            aparencia.tema === 'escuro'
-              ? '#2B342F'
-              : '#E3EAE5'
+            aparencia.tema === 'escuro' ? '#2B342F' : '#E3EAE5'
           }`,
         }}
       >
-        <strong style={styles.footerBrand}>
-          organiza
-        </strong>
+        <strong style={styles.footerBrand}>organiza</strong>
 
         <span
           style={{
@@ -1274,13 +1218,17 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'space-between',
   },
 
-organizaLogo: {
-  width: 36,
-  height: 36,
-  objectFit: 'contain',
-  marginLeft: 'auto',
-  display: 'block',
-},
+  headerSpacer: {
+    width: 50,
+  },
+
+  organizaLogo: {
+    width: 36,
+    height: 36,
+    objectFit: 'contain',
+    marginLeft: 'auto',
+    display: 'block',
+  },
 
   backButton: {
     border: 'none',
@@ -1292,36 +1240,50 @@ organizaLogo: {
     cursor: 'pointer',
   },
 
+  main: {
+    maxWidth: 1180,
+    margin: '0 auto',
+    padding: '22px 20px 35px',
+    boxSizing: 'border-box',
+  },
+
   banner: {
     width: '100%',
-    maxHeight: 360,
+    height: 250,
+    marginBottom: 18,
     overflow: 'hidden',
+    position: 'relative',
+    background: '#EAF7EF',
   },
 
   bannerImage: {
     width: '100%',
     height: '100%',
-    maxHeight: 360,
     objectFit: 'cover',
     display: 'block',
   },
 
-  main: {
-    maxWidth: 1180,
-    margin: '0 auto',
-    padding: '24px 20px 110px',
-    boxSizing: 'border-box',
+  bannerOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: '35px 20px 18px',
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: 700,
+    background: 'linear-gradient(transparent, rgba(0,0,0,0.58))',
   },
 
   businessHeader: {
-    padding: 24,
+    padding: '26px 22px',
     textAlign: 'center',
     marginBottom: 22,
   },
 
   logoWrapper: {
-    width: 92,
-    height: 92,
+    width: 88,
+    height: 88,
     margin: '0 auto 14px',
     display: 'flex',
     alignItems: 'center',
@@ -1337,10 +1299,10 @@ organizaLogo: {
 
   businessName: {
     margin: 0,
-    fontSize: 29,
+    fontSize: 28,
     lineHeight: 1.15,
     fontWeight: 750,
-    letterSpacing: '-0.6px',
+    letterSpacing: '-0.7px',
   },
 
   businessDescription: {
@@ -1391,15 +1353,16 @@ organizaLogo: {
   },
 
   searchSection: {
-    marginBottom: 18,
+    marginBottom: 24,
   },
 
   searchBox: {
     display: 'flex',
     alignItems: 'center',
     gap: 10,
-    padding: '12px 14px',
+    padding: '13px 15px',
     border: '1px solid',
+    boxShadow: '0 2px 9px rgba(0,0,0,0.025)',
   },
 
   searchInput: {
@@ -1412,35 +1375,44 @@ organizaLogo: {
   },
 
   categoriesSection: {
-    marginBottom: 25,
+    marginBottom: 28,
     overflow: 'hidden',
+  },
+
+  categoryHeading: {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 12,
   },
 
   categoryScroll: {
     display: 'flex',
     gap: 9,
     overflowX: 'auto',
-    paddingBottom: 4,
+    paddingBottom: 5,
   },
 
   categoryButton: {
     flexShrink: 0,
-    padding: '9px 14px',
+    padding: '10px 16px',
     border: '1px solid',
     fontSize: 13,
     fontWeight: 600,
     cursor: 'pointer',
+    whiteSpace: 'nowrap',
   },
 
   section: {
-    marginBottom: 30,
+    marginBottom: 32,
   },
 
   sectionHeader: {
     display: 'flex',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 15,
   },
 
   sectionTitle: {
@@ -1450,14 +1422,13 @@ organizaLogo: {
   },
 
   sectionSubtitle: {
-    margin: '4px 0 0',
+    margin: '5px 0 0',
     fontSize: 13,
   },
 
   productGrid: {
     display: 'grid',
-    gridTemplateColumns:
-      'repeat(auto-fill, minmax(190px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(155px, 1fr))',
     gap: 14,
   },
 
@@ -1466,8 +1437,8 @@ organizaLogo: {
     textAlign: 'left',
     cursor: 'pointer',
     overflow: 'hidden',
-    transition:
-      'transform 0.15s ease, box-shadow 0.15s ease',
+    transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+    minWidth: 0,
   },
 
   productImage: {
@@ -1487,9 +1458,11 @@ organizaLogo: {
     width: '100%',
     height: '100%',
     display: 'flex',
+    flexDirection: 'column',
+    gap: 7,
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: 13,
+    fontSize: 11,
   },
 
   productInfo: {
@@ -1498,14 +1471,14 @@ organizaLogo: {
 
   productName: {
     margin: 0,
-    fontSize: 15,
-    lineHeight: 1.3,
+    fontSize: 14,
+    lineHeight: 1.35,
     fontWeight: 700,
   },
 
   productDescription: {
     margin: '6px 0 0',
-    fontSize: 12.5,
+    fontSize: 12,
     lineHeight: 1.45,
     display: '-webkit-box',
     WebkitLineClamp: 2,
@@ -1546,9 +1519,33 @@ organizaLogo: {
   },
 
   emptyProducts: {
-    padding: 35,
+    padding: '38px 22px',
     textAlign: 'center',
     fontSize: 14,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 10,
+  },
+
+  emptyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 18,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+
+  clearFiltersButton: {
+    border: 'none',
+    color: '#FFFFFF',
+    padding: '10px 17px',
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: 'pointer',
+    marginTop: 5,
   },
 
   locationCard: {
@@ -1561,7 +1558,7 @@ organizaLogo: {
   locationIcon: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 13,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1586,6 +1583,7 @@ organizaLogo: {
     right: 0,
     zIndex: 30,
     padding: '11px 20px',
+    boxShadow: '0 -4px 18px rgba(0,0,0,0.055)',
   },
 
   orderButton: {
@@ -1598,7 +1596,7 @@ organizaLogo: {
     margin: '0 auto',
     border: 'none',
     color: '#FFFFFF',
-    padding: '13px 18px',
+    padding: '14px 18px',
     fontSize: 15,
     fontWeight: 700,
     cursor: 'pointer',
