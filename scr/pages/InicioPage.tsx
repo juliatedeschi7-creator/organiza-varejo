@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Logo } from '../components/Logo'
@@ -372,6 +373,12 @@ export default function InicioPage({
             </section>
           )}
 
+        <section className="inicio-proposta">
+          <p>
+            O comércio local organizado em um só lugar.
+          </p>
+        </section>
+
         <section className="inicio-options">
           <button
             type="button"
@@ -512,6 +519,11 @@ export default function InicioPage({
             Conhecer o Organiza primeiro.
           </small>
         </button>
+
+        <footer className="inicio-footer">
+          <strong>Organiza</strong>
+          <span>Tecnologia para quem empreende</span>
+        </footer>
       </section>
 
       <style>{`
@@ -796,11 +808,28 @@ export default function InicioPage({
           font-size: 13px;
         }
 
+        .inicio-proposta {
+          margin: 30px 0 0;
+          padding: 18px 16px;
+          border-top: 1px solid #e6e6e6;
+          border-bottom: 1px solid #e6e6e6;
+          text-align: center;
+        }
+
+        .inicio-proposta p {
+          margin: 0;
+          color: #292929;
+          font-size: 17px;
+          font-weight: 600;
+          line-height: 1.45;
+          letter-spacing: -0.02em;
+        }
+
         .inicio-options {
           display: flex;
           flex-direction: column;
           gap: 12px;
-          margin-top: 28px;
+          margin-top: 22px;
         }
 
         .inicio-option {
@@ -899,6 +928,31 @@ export default function InicioPage({
           font-size: 11px;
         }
 
+        .inicio-footer {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 5px;
+          margin-top: 42px;
+          padding: 24px 0 8px;
+          border-top: 1px solid #e7e7e7;
+          text-align: center;
+        }
+
+        .inicio-footer strong {
+          color: #000;
+          font-size: 24px;
+          font-weight: 800;
+          letter-spacing: -0.045em;
+        }
+
+        .inicio-footer span {
+          color: #555;
+          font-size: 12px;
+          font-weight: 500;
+          letter-spacing: 0.01em;
+        }
+
         @media (max-width: 480px) {
           .inicio-content {
             padding: 28px 16px 34px;
@@ -930,6 +984,19 @@ export default function InicioPage({
 
           .inicio-option__content span {
             font-size: 11px;
+          }
+
+          .inicio-proposta {
+            margin-top: 25px;
+            padding: 16px 10px;
+          }
+
+          .inicio-proposta p {
+            font-size: 16px;
+          }
+
+          .inicio-footer {
+            margin-top: 34px;
           }
         }
       `}</style>
