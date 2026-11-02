@@ -422,9 +422,15 @@ export default function ExplorarPage({
           <div className="explorar-footer-brand">
             <span className="explorar-footer-line" />
 
-            <span className="explorar-footer-name">
-              Organiza
-            </span>
+<span
+  className="explorar-footer-name"
+  style={{
+    color: '#000000',
+    fontWeight: 800,
+  }}
+>
+  Organiza
+</span>
 
             <span className="explorar-footer-line" />
           </div>
