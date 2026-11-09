@@ -7,6 +7,7 @@ interface NegocioPageProps {
   onSair: () => void
   onAbrirVitrine: () => void
   onAbrirProdutos: () => void
+  onAbrirProdutosVitrine: () => void
   onAbrirCategorias: () => void
   onAbrirEditarEmpresa: () => void
   onAbrirEditarEndereco: () => void
@@ -70,6 +71,7 @@ export default function NegocioPage({
   onSair,
   onAbrirVitrine,
   onAbrirProdutos,
+onAbrirProdutosVitrine: () => void
   onAbrirCategorias,
   onAbrirEditarEmpresa,
   onAbrirEditarEndereco,
@@ -799,6 +801,24 @@ export default function NegocioPage({
                 Cadastre o que você oferece
               </small>
             </button>
+
+<button
+  type="button"
+  className="negocio-action"
+  onClick={onAbrirProdutosVitrine}
+>
+  <span className="negocio-action-icon">
+    ◈
+  </span>
+
+  <strong>
+    Produtos da vitrine
+  </strong>
+
+  <small>
+    Escolha e organize o que aparece para seus clientes
+  </small>
+</button>
 
             <button
               type="button"
