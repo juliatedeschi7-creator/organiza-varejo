@@ -15,6 +15,7 @@ import EditarEnderecoPage from './pages/EditarEnderecoPage'
 import PersonalizacaoNegocioPage from './pages/PersonalizacaoNegocioPage'
 import VitrinePublicaSlugPage from './pages/VitrinePublicaSlugPage'
 import RedefinirSenhaPage from './pages/RedefinirSenhaPage'
+import ProdutosVitrinePage from './pages/ProdutosVitrinePage'
 
 export interface CidadeOrganiza {
   cidade: string
@@ -62,6 +63,7 @@ type Page =
   | 'editar-endereco'
   | 'personalizacao'
   | 'redefinir-senha'
+  | 'produtos-vitrine'
 
 function obterSlugDaUrl() {
   const caminho = window.location.pathname
@@ -313,6 +315,7 @@ export default function App() {
         }}
         onAbrirVitrine={() => setPage('pagina-publica')}
         onAbrirProdutos={() => setPage('produtos')}
+        onAbrirProdutosVitrine={() => setPage('produtos-vitrine')}
         onAbrirCategorias={() => setPage('categorias')}
         onAbrirEditarEmpresa={() => setPage('editar-empresa')}
         onAbrirEditarEndereco={() => setPage('editar-endereco')}
@@ -329,6 +332,15 @@ export default function App() {
       />
     )
   }
+
+if (page === 'produtos-vitrine') {
+  return (
+    <ProdutosVitrinePage
+      empresaId={empresaId}
+      onVoltar={() => setPage('negocio')}
+    />
+  )
+}
 
   if (page === 'categorias') {
     return (
