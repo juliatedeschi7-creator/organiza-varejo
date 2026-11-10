@@ -71,7 +71,7 @@ export default function NegocioPage({
   onSair,
   onAbrirVitrine,
   onAbrirProdutos,
-onAbrirProdutosVitrine: () => void
+  onAbrirProdutosVitrine,
   onAbrirCategorias,
   onAbrirEditarEmpresa,
   onAbrirEditarEndereco,
