@@ -783,130 +783,115 @@ export default function NegocioPage({
             </div>
           </div>
 
-          <div className="negocio-actions-grid">
-            <button
-              type="button"
-              className="negocio-action"
-              onClick={onAbrirProdutos}
-            >
-              <span className="negocio-action-icon">
-                ▦
-              </span>
 
-              <strong>
-                Produtos e serviços
-              </strong>
+<div className="negocio-actions-grid">
+  <button
+    type="button"
+    className="negocio-action"
+    onClick={onAbrirProdutos}
+  >
+    <span className="negocio-action-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 7.5 12 3l8 4.5v9L12 21l-8-4.5z" />
+        <path d="m4 7.5 8 4.5 8-4.5M12 12v9" />
+      </svg>
+    </span>
+    <strong>Produtos e serviços</strong>
+    <small>Cadastre o que você oferece</small>
+  </button>
 
-              <small>
-                Cadastre o que você oferece
-              </small>
-            </button>
+  <button
+    type="button"
+    className="negocio-action"
+    onClick={onAbrirProdutosVitrine}
+  >
+    <span className="negocio-action-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 10h18l-2-6H5z" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6" />
+        <path d="M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
+      </svg>
+    </span>
+    <strong>Produtos da vitrine</strong>
+    <small>Escolha e organize o que aparece para seus clientes</small>
+  </button>
 
-<button
-  type="button"
-  className="negocio-action"
-  onClick={onAbrirProdutosVitrine}
->
-  <span className="negocio-action-icon">
-    ◈
-  </span>
+  <button
+    type="button"
+    className="negocio-action"
+    onClick={onAbrirCategorias}
+  >
+    <span className="negocio-action-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 5h16M4 12h16M4 19h16" />
+        <circle cx="8" cy="5" r="1" />
+        <circle cx="15" cy="12" r="1" />
+        <circle cx="10" cy="19" r="1" />
+      </svg>
+    </span>
+    <strong>Categorias</strong>
+    <small>Organize seus produtos por categoria</small>
+  </button>
 
-  <strong>
-    Produtos da vitrine
-  </strong>
+  <button
+    type="button"
+    className="negocio-action"
+  >
+    <span className="negocio-action-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="8" r="3.5" />
+        <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 5.5a3.5 3.5 0 0 1 0 6.8M17 14a5 5 0 0 1 4.5 5" />
+      </svg>
+    </span>
+    <strong>Clientes</strong>
+    <small>Organize seus clientes</small>
+  </button>
 
-  <small>
-    Escolha e organize o que aparece para seus clientes
-  </small>
-</button>
+  <button
+    type="button"
+    className="negocio-action"
+  >
+    <span className="negocio-action-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 8h18v12H3zM3 8l2-4h14l2 4" />
+        <path d="M8 12h8M8 16h5" />
+      </svg>
+    </span>
+    <strong>Estoque</strong>
+    <small>Acompanhe seus produtos</small>
+  </button>
 
-            <button
-              type="button"
-              className="negocio-action"
-              onClick={onAbrirCategorias}
-            >
-              <span className="negocio-action-icon">
-                ≡
-              </span>
+  <button
+    type="button"
+    className="negocio-action"
+  >
+    <span className="negocio-action-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 3v18h18" />
+        <path d="m7 14 4-4 3 3 6-7" />
+        <path d="M16 6h4v4" />
+      </svg>
+    </span>
+    <strong>Vendas</strong>
+    <small>Acompanhe suas vendas</small>
+  </button>
 
-              <strong>
-                Categorias
-              </strong>
-
-              <small>
-                Organize seus produtos por categoria
-              </small>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-action"
-            >
-              <span className="negocio-action-icon">
-                ♙
-              </span>
-
-              <strong>
-                Clientes
-              </strong>
-
-              <small>
-                Organize seus clientes
-              </small>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-action"
-            >
-              <span className="negocio-action-icon">
-                ▤
-              </span>
-
-              <strong>
-                Estoque
-              </strong>
-
-              <small>
-                Acompanhe seus produtos
-              </small>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-action"
-            >
-              <span className="negocio-action-icon">
-                R$
-              </span>
-
-              <strong>
-                Vendas
-              </strong>
-
-              <small>
-                Acompanhe suas vendas
-              </small>
-            </button>
-
-            <button
-              type="button"
-              className="negocio-action negocio-vitrine-action"
-              onClick={onAbrirVitrine}
-            >
-              <span className="negocio-action-icon">
-                ◉
-              </span>
-
-              <strong>
-                Minha vitrine
-              </strong>
-
-              <small>
-                Veja como seus clientes verão
-              </small>
-            </button>
-          </div>
+  <button
+    type="button"
+    className="negocio-action negocio-vitrine-action"
+    onClick={onAbrirVitrine}
+  >
+    <span className="negocio-action-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 10h18l-2-6H5z" />
+        <path d="M5 10v10h14V10M9 20v-6h6v6" />
+        <path d="M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
+      </svg>
+    </span>
+    <strong>Minha vitrine</strong>
+    <small>Veja como seus clientes verão</small>
+  </button>
+</div>
         </section>
 
         <section className="negocio-section">
@@ -1664,19 +1649,25 @@ export default function NegocioPage({
           box-shadow: 0 12px 28px rgba(0,0,0,.06);
         }
 
-        .negocio-action-icon {
-          width: 40px;
-          height: 40px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12px;
-          background: #f1f1ee;
-          color: #333;
-          font-size: 15px;
-          font-weight: 700;
-          margin-bottom: 6px;
-        }
+       
+.negocio-action-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: #f0f4f0;
+  color: #287b49;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.negocio-action-icon svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
 
         .negocio-action strong {
           font-size: 14px;
